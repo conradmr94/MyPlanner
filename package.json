@@ -7,6 +7,7 @@
     "@testing-library/jest-dom": "^6.6.4",
     "@testing-library/react": "^16.3.0",
     "@testing-library/user-event": "^13.5.0",
+    "chrono-node": "^2.8.4",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "react-scripts": "5.0.1",
@@ -16,7 +17,9 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "proxy": "http://localhost:3001",
+    "dev:all": "concurrently -k -n OLLAMA,API,APP -c blue,green,magenta \"ollama serve\" \"npm run dev --prefix server\" \"npm start --prefix .\""
   },
   "eslintConfig": {
     "extends": [
@@ -39,6 +42,7 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.11",
     "autoprefixer": "^10.4.16",
+    "concurrently": "^9.2.0",
     "postcss": "^8.4.32",
     "tailwindcss": "^3.3.7"
   }
