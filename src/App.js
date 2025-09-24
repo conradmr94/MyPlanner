@@ -1,6 +1,14 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import CueSettings from './components/CueSettings';
+import NotesList from './components/NotesList';
+import NoteEditor from './components/NoteEditor';
+import NotesSearch from './components/NotesSearch';
 import { derivePriority } from './nlp/priority';
+
+// 🔗 Firebase + data-layer helpers
+import { onAuth, signInWithGoogle, signOutUser } from './lib/firebase';
+import { watchOpenTasks, createTask, completeTask, deleteTaskDoc } from './data/tasks';
+import { watchNotes } from './data/notes';
 
 // Simple SVG icon components (accept className)
 const PlusIcon = ({ className = 'w-5 h-5' }) => (
@@ -57,15 +65,17 @@ async function classifyWithLLM(text, { timeoutMs = 5000 } = {}) {
     if (priority === 'high' || priority === 'medium' || priority === 'low') return priority;
     return null;
   } catch (err){
-    
     console.log('LLM error', err);
-
     clearTimeout(t);
     return null; // fall back if API fails/times out
   }
 }
 
 function App() {
+  // 👤 Auth + source-of-truth
+  const [user, setUser] = useState(null);
+
+  // Local UI tasks (used when signed out; replaced by Firestore when signed in)
   const [tasks, setTasks] = useState([
     {
       id: 1,
@@ -89,6 +99,7 @@ function App() {
       meta: { score: 0.2, rationale: 'demo task', due: null },
     },
   ]);
+
   const [newTask, setNewTask] = useState('');
   const [showCueSettings, setShowCueSettings] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -99,6 +110,80 @@ function App() {
   // Model warmup state
   const [modelLoading, setModelLoading] = useState(true);
   const [modelReady, setModelReady] = useState(false);
+
+  // 📝 Notes state
+  const [notes, setNotes] = useState([
+    {
+      id: 1,
+      title: 'Welcome to Notes! 📝',
+      content: 'This is your first note. You can write anything here - meeting notes, ideas, reminders, or just random thoughts.\n\nTry using **bold text**, *italic text*, or `code snippets`.\n\nYou can also create lists:\n- First item\n- Second item\n- Third item\n\n## Features\n\n- **Rich formatting** with markdown\n- Tag organization\n- Task linking\n- Search and filter\n\n> This is a blockquote example\n\nCheck out [MyPlanner](https://myplanner.app) for more features!',
+      tags: ['welcome', 'demo'],
+      linkedTasks: [],
+      isPinned: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    },
+    {
+      id: 2,
+      title: 'Meeting Notes Template',
+      content: '# Meeting: [Topic]\n\n## Attendees\n- [Name 1]\n- [Name 2]\n\n## Agenda\n1. [Item 1]\n2. [Item 2]\n\n## Action Items\n- [ ] [Task 1] - [Assignee]\n- [ ] [Task 2] - [Assignee]\n\n## Next Steps\n- [Next action]\n- [Follow-up needed]\n\n> **Note:** Remember to follow up on action items within 24 hours',
+      tags: ['template', 'meeting'],
+      linkedTasks: [],
+      isPinned: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    },
+    {
+      id: 3,
+      title: 'Project Ideas',
+      content: '## Current Projects\n\n### High Priority\n- **Mobile App Redesign** - Due next month\n- API Documentation update\n\n### Medium Priority\n- User feedback analysis\n- Performance optimization\n\n### Low Priority\n- *Maybe* implement dark mode\n- Consider adding animations\n\n## Resources\n- [Design System](https://design.example.com)\n- [API Docs](https://api.example.com)\n\n`const project = { status: "in-progress" };`',
+      tags: ['projects', 'planning'],
+      linkedTasks: [],
+      isPinned: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    },
+  ]);
+  const [showNoteEditor, setShowNoteEditor] = useState(false);
+  const [editingNote, setEditingNote] = useState(null);
+  const [notesSearchQuery, setNotesSearchQuery] = useState('');
+  const [notesFilterTag, setNotesFilterTag] = useState('');
+
+  // 🔐 Auth listener
+  useEffect(() => {
+    const unsub = onAuth((u) => setUser(u || null));
+    return () => unsub && unsub();
+  }, []);
+
+  // 🔄 Subscribe to Firestore tasks when signed in
+  useEffect(() => {
+    if (!user) return; // keep demo data when signed out
+    const unsub = watchOpenTasks(user.uid, (docs) => {
+      // Map Firestore docs → UI shape
+      const mapped = docs.map((d) => ({
+        id: d.id,                           // Firestore doc id
+        text: d.title || '',                // UI expects 'text'
+        completed: d.status === 'done',     // normalize
+        priority: d.priority || 'medium',
+        meta: {
+          score: d?.nlp?.score ?? 0,
+          rationale: d?.nlp?.rationale ?? '',
+          due: d?.dueAt ?? null,
+        },
+      }));
+      setTasks(mapped);
+    });
+    return () => unsub && unsub();
+  }, [user]);
+
+  // 🔄 Subscribe to Firestore notes when signed in
+  useEffect(() => {
+    if (!user) return; // keep demo data when signed out
+    const unsub = watchNotes(user.uid, (docs) => {
+      setNotes(docs);
+    });
+    return () => unsub && unsub();
+  }, [user]);
 
   // Warm up the Ollama model when the app starts
   useEffect(() => {
@@ -125,24 +210,22 @@ function App() {
         setModelLoading(false);
       }
     };
-    
     warmupModel();
   }, []);
 
+  // Live preview (debounced)
   useEffect(() => {
     let cancelled = false;
     if (!newTask.trim()) {
       setPreview(null);
       return;
     }
-    
     // Don't call API for very short text (less than 3 characters)
     if (newTask.trim().length < 3) {
       setPreview(null);
       return;
     }
-    
-    // Debounce the API call - only call after user stops typing for 500ms
+    // Debounce the NLP call - only call after user stops typing for 500ms
     const timeoutId = setTimeout(async () => {
       try {
         const p = await derivePriority(newTask);
@@ -164,38 +247,127 @@ function App() {
     if (!text || submitting) return;
     setSubmitting(true);
 
-    const local = await derivePriority(text); // await here too
+    // Always compute local signals (fast, offline, due-date aware)
+    const local = await derivePriority(text);
 
+    // Ask LLM for final label; fall back to local label on failure/timeout
     const llmPriority = await classifyWithLLM(text);
     const finalLabel = llmPriority || local.label;
 
-    setTasks(prev => [
-      ...prev,
-      {
-        id: Date.now(),
-        text: local.cleanText,
-        completed: false,
-        priority: finalLabel,
-        meta: {
-          score: local.score ?? 0,
-          rationale: local.rationale,
-          due: local.due ? local.due.toISOString() : null,
-        },
+    if (user) {
+      // ➜ Firestore write (source of truth when signed in)
+      try {
+        await createTask(user.uid, {
+          title: local.cleanText,
+          priority: finalLabel,
+          dueAt: local.due ? new Date(local.due) : null,
+          estimateMin: local.signals?.minutes ?? null,
+          labels: [],
+          links: [],
+          nlp: {
+            score: local.score ?? 0,
+            rationale: local.rationale,
+          },
+        });
+      } catch (err) {
+        console.error('createTask failed', err);
+        // fallback to local state so the user isn’t blocked
+        setTasks(prev => [
+          ...prev,
+          {
+            id: Date.now(),
+            text: local.cleanText,
+            completed: false,
+            priority: finalLabel,
+            meta: {
+              score: local.score ?? 0,
+              rationale: local.rationale,
+              due: local.due ? local.due.toISOString() : null,
+            },
+          }
+        ]);
       }
-    ]);
+    } else {
+      // ➜ Signed out: keep local state (demo mode)
+      setTasks(prev => [
+        ...prev,
+        {
+          id: Date.now(),
+          text: local.cleanText,
+          completed: false,
+          priority: finalLabel,
+          meta: {
+            score: local.score ?? 0,
+            rationale: local.rationale,
+            due: local.due ? local.due.toISOString() : null,
+          },
+        }
+      ]);
+    }
 
     setNewTask('');
     setSubmitting(false);
   };
 
-  const toggleTask = (id) => {
-    setTasks((prev) =>
-      prev.map((task) => (task.id === id ? { ...task, completed: !task.completed } : task))
-    );
+  const toggleTask = async (id) => {
+    const t = tasks.find((x) => x.id === id);
+    const nextDone = !(t?.completed);
+    if (user) {
+      try {
+        await completeTask(user.uid, id, nextDone);
+      } catch (err) {
+        console.error('completeTask failed', err);
+      }
+    } else {
+      // local fallback
+      setTasks((prev) =>
+        prev.map((task) => (task.id === id ? { ...task, completed: nextDone } : task))
+      );
+    }
   };
 
-  const deleteTask = (id) => {
-    setTasks((prev) => prev.filter((task) => task.id !== id));
+  const deleteTask = async (id) => {
+    if (user) {
+      try {
+        await deleteTaskDoc(user.uid, id);
+      } catch (err) {
+        console.error('deleteTask failed', err);
+      }
+    } else {
+      setTasks((prev) => prev.filter((task) => task.id !== id));
+    }
+  };
+
+  // 📝 Notes handlers
+  const handleCreateNote = () => {
+    setEditingNote(null);
+    setShowNoteEditor(true);
+  };
+
+  const handleEditNote = (note) => {
+    setEditingNote(note);
+    setShowNoteEditor(true);
+  };
+
+  const handleSaveNote = (noteData) => {
+    if (editingNote) {
+      // Update existing note
+      setNotes(prev => prev.map(note => 
+        note.id === editingNote.id ? { ...note, ...noteData } : note
+      ));
+    } else {
+      // Create new note
+      setNotes(prev => [noteData, ...prev]);
+    }
+  };
+
+  const handleDeleteNote = (id) => {
+    setNotes(prev => prev.filter(note => note.id !== id));
+  };
+
+  const handleCloseNoteEditor = () => {
+    setShowNoteEditor(false);
+    setEditingNote(null);
   };
 
   const getPriorityColor = (priority) => {
@@ -225,10 +397,50 @@ function App() {
 
   // Optional: sort by score (desc), completed at bottom
   const visibleTasks = useMemo(() => {
-    const active = tasks.filter((t) => !t.completed).sort((a, b) => (b.meta?.score ?? 0) - (a.meta?.score ?? 0));
+    const active = tasks
+      .filter((t) => !t.completed)
+      .sort((a, b) => (b.meta?.score ?? 0) - (a.meta?.score ?? 0));
     const done = tasks.filter((t) => t.completed);
     return [...active, ...done];
   }, [tasks]);
+
+  // 📝 Notes computed values
+  const filteredNotes = useMemo(() => {
+    let filtered = notes;
+
+    // Filter by search query
+    if (notesSearchQuery.trim()) {
+      const query = notesSearchQuery.toLowerCase();
+      filtered = filtered.filter(note => 
+        note.title.toLowerCase().includes(query) ||
+        note.content.toLowerCase().includes(query) ||
+        note.tags.some(tag => tag.toLowerCase().includes(query))
+      );
+    }
+
+    // Filter by tag
+    if (notesFilterTag) {
+      filtered = filtered.filter(note => 
+        note.tags.includes(notesFilterTag)
+      );
+    }
+
+    // Sort: pinned first, then by updatedAt
+    return filtered.sort((a, b) => {
+      if (a.isPinned && !b.isPinned) return -1;
+      if (!a.isPinned && b.isPinned) return 1;
+      return new Date(b.updatedAt?.toDate?.() || b.updatedAt) - new Date(a.updatedAt?.toDate?.() || a.updatedAt);
+    });
+  }, [notes, notesSearchQuery, notesFilterTag]);
+
+  // Get all unique tags for filtering
+  const allNoteTags = useMemo(() => {
+    const tagSet = new Set();
+    notes.forEach(note => {
+      note.tags?.forEach(tag => tagSet.add(tag));
+    });
+    return Array.from(tagSet).sort();
+  }, [notes]);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -253,6 +465,30 @@ function App() {
               )}
             </div>
             <div className="flex items-center space-x-3">
+              {/* 🔐 Auth UI */}
+              {user ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-600">
+                    Hi, {user.displayName || user.email}
+                  </span>
+                  <button
+                    onClick={signOutUser}
+                    className="rounded-md border px-3 py-1.5 text-sm hover:bg-gray-50"
+                    title="Sign out"
+                  >
+                    Sign out
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={signInWithGoogle}
+                  className="rounded-md border px-3 py-1.5 text-sm hover:bg-gray-50"
+                  title="Sign in with Google"
+                >
+                  Sign in
+                </button>
+              )}
+
               <button
                 onClick={() => setShowCueSettings(true)}
                 className="rounded-md border px-3 py-1.5 text-sm hover:bg-gray-50"
@@ -495,29 +731,44 @@ function App() {
           {/* Notes Section */}
           <div className="lg:col-span-1">
             <div className="card animate-fade-in" style={{ animationDelay: '0.2s' }}>
-              <div className="flex items-center space-x-2 mb-6">
-                <NoteIcon className="w-5 h-5 text-primary-600" />
-                <h2 className="text-xl font-semibold text-gray-900">Notes</h2>
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center space-x-2">
+                  <NoteIcon className="w-5 h-5 text-primary-600" />
+                  <h2 className="text-xl font-semibold text-gray-900">Notes</h2>
+                </div>
+                <button
+                  onClick={handleCreateNote}
+                  className="btn-primary px-3 py-1.5 text-sm"
+                  title="Create new note"
+                >
+                  <PlusIcon className="w-4 h-4" />
+                </button>
               </div>
 
-              <div className="text-center py-16">
-                <div className="bg-primary-50 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-4">
-                  <NoteIcon className="w-10 h-10 text-primary-600" />
-                </div>
-                <h3 className="text-lg font-medium text-gray-700 mb-3">Smart Note-Taking</h3>
-                <p className="text-gray-500 mb-6 max-w-sm mx-auto">
-                  Capture thoughts, meeting notes, and ideas with automatic linking to your tasks and calendar.
-                </p>
-                <div className="bg-gray-50 rounded-lg p-4 text-left">
-                  <h4 className="font-medium text-gray-700 mb-2">Coming Soon:</h4>
-                  <ul className="text-sm text-gray-600 space-y-1">
-                    <li>• Rich text editor</li>
-                    <li>• Markdown support</li>
-                    <li>• Voice memo transcription</li>
-                    <li>• Auto-link to tasks & events</li>
-                    <li>• Quick capture shortcuts</li>
-                  </ul>
-                </div>
+              {/* Notes Search */}
+              <div className="mb-6">
+                <NotesSearch
+                  searchQuery={notesSearchQuery}
+                  onSearchChange={setNotesSearchQuery}
+                  filterTag={notesFilterTag}
+                  onFilterChange={setNotesFilterTag}
+                  allTags={allNoteTags}
+                  totalNotes={notes.length}
+                  filteredCount={filteredNotes.length}
+                />
+              </div>
+
+              {/* Notes List */}
+              <div className="max-h-96 overflow-y-auto">
+                <NotesList
+                  notes={filteredNotes}
+                  onEditNote={handleEditNote}
+                  onDeleteNote={handleDeleteNote}
+                  searchQuery={notesSearchQuery}
+                  filterTag={notesFilterTag}
+                  onFilterTag={setNotesFilterTag}
+                  user={user}
+                />
               </div>
             </div>
           </div>
@@ -542,7 +793,7 @@ function App() {
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-primary-700">Notes System</span>
-                <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">Week 6</span>
+                <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">Complete</span>
               </div>
             </div>
           </div>
@@ -550,11 +801,16 @@ function App() {
           <div className="card bg-gradient-to-br from-green-50 to-emerald-50 border-green-200">
             <h3 className="text-lg font-semibold text-green-900 mb-3">💡 Try These Features</h3>
             <ul className="space-y-2 text-sm text-green-700">
-              <li>• Type “ASAP send report by 5pm” and watch the preview update</li>
-              <li>• Add your own cue like “blocker” in <em>Priority Cues</em></li>
-              <li>• Use “low prio” / “maybe” to de-emphasize</li>
+              <li>• Type "ASAP send report by 5pm" and watch the preview update</li>
+              <li>• Add your own cue like "blocker" in <em>Priority Cues</em></li>
+              <li>• Use "low prio" / "maybe" to de-emphasize</li>
               <li>• Complete tasks to see progress tracking</li>
-              <li>• Enjoy the smooth animations and transitions</li>
+              <li>• Create notes with **bold**, *italic*, `code`, # headers, and lists</li>
+              <li>• Use markdown formatting: &gt; quotes, [links](url), numbered lists</li>
+              <li>• Click on any note preview to open it in the editor</li>
+              <li>• Pin important notes and organize with tags</li>
+              <li>• Link notes to tasks for better organization</li>
+              <li>• Search and filter notes by content or tags</li>
             </ul>
           </div>
         </div>
@@ -562,6 +818,16 @@ function App() {
 
       {/* Priority Cues modal */}
       <CueSettings isOpen={showCueSettings} onClose={() => setShowCueSettings(false)} />
+
+      {/* Note Editor modal */}
+      <NoteEditor
+        note={editingNote}
+        isOpen={showNoteEditor}
+        onClose={handleCloseNoteEditor}
+        onSave={handleSaveNote}
+        user={user}
+        tasks={tasks}
+      />
     </div>
   );
 }
