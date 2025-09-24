@@ -1,70 +1,225 @@
-# Getting Started with Create React App
+# MyPlanner 📝
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A unified productivity platform that combines intelligent task management with powerful note-taking capabilities. Built with React, Firebase, and AI-powered priority classification.
 
-## Available Scripts
+## 🚀 Quick Start (5 minutes)
 
-In the project directory, you can run:
+Get MyPlanner running locally with all features:
 
-### `npm start`
+### 1. Clone & Install
+```bash
+git clone git@github.com:conradmr94/MyPlanner.git
+cd MyPlanner
+npm install
+```
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+### 2. Start AI Features (Optional but Recommended)
+```bash
+# Install Ollama (if not already installed)
+# Visit https://ollama.ai for installation
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+# Start Ollama server
+ollama serve
 
-### `npm test`
+# In a new terminal, pull a model
+ollama pull mistral
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+# Start the API server
+cd server
+npm install
+npm run dev
+```
 
-### `npm run build`
+### 3. Run the App
+```bash
+# In the main directory
+npm start
+```
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+**That's it!** Open [http://localhost:3000](http://localhost:3000) and start using MyPlanner.
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+> **Note:** The app works without Ollama, but you'll get AI-powered priority classification when it's running.
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+---
 
-### `npm run eject`
+## ✨ Features
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+### 🎯 Smart Task Management
+- **Natural Language Input**: Add tasks using natural language like "ASAP send report by 5pm"
+- **AI-Powered Priority Classification**: Automatic priority detection using Ollama
+- **Custom Priority Cues**: Add your own keywords to influence task priority
+- **Progress Tracking**: Visual progress indicators and completion statistics
+- **Firebase Integration**: Cloud sync when signed in, offline support when signed out
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+### 📝 Rich Note-Taking
+- **Markdown Support**: Full markdown formatting with live preview
+- **Tag Organization**: Organize notes with custom tags
+- **Task Linking**: Connect notes to specific tasks
+- **Search & Filter**: Find notes by content or tags
+- **Pin Important Notes**: Keep important notes at the top
+- **Click to Edit**: Click any note preview to open the editor
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+### 🔧 Technical Features
+- **Responsive Design**: Works on desktop and mobile
+- **Real-time Updates**: Live data synchronization
+- **Offline Support**: Works without internet connection
+- **Modern UI**: Clean, intuitive interface with smooth animations
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+## 🚀 Quick Start
 
-## Learn More
+### Prerequisites
+- Node.js (v14 or higher)
+- npm or yarn
+- Git
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+### Installation
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/yourusername/myplanner.git
+   cd myplanner
+   ```
 
-### Code Splitting
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+3. **Start the development server**
+   ```bash
+   npm start
+   ```
 
-### Analyzing the Bundle Size
+4. **Open your browser**
+   Navigate to [http://localhost:3000](http://localhost:3000)
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+### Optional: AI Features Setup
 
-### Making a Progressive Web App
+For AI-powered priority classification, you'll need to run the Ollama server:
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+1. **Install Ollama** (if not already installed)
+   - Visit [https://ollama.ai](https://ollama.ai) for installation instructions
 
-### Advanced Configuration
+2. **Start the Ollama server**
+   ```bash
+   ollama serve
+   ```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+3. **Pull a model** (e.g., Mistral)
+   ```bash
+   ollama pull mistral
+   ```
 
-### Deployment
+4. **Start the API server** (in a new terminal)
+   ```bash
+   cd server
+   npm install
+   npm run dev
+   ```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+## 📁 Project Structure
 
-### `npm run build` fails to minify
+```
+myplanner/
+├── public/                 # Static assets
+├── src/
+│   ├── components/         # React components
+│   │   ├── CueSettings.jsx    # Priority cues management
+│   │   ├── NoteEditor.jsx     # Rich text note editor
+│   │   ├── NotesList.jsx      # Notes display and management
+│   │   └── NotesSearch.jsx    # Search and filtering
+│   ├── data/              # Data layer
+│   │   ├── tasks.js           # Task CRUD operations
+│   │   └── notes.js           # Notes CRUD operations
+│   ├── lib/               # Utilities
+│   │   └── firebase.js        # Firebase configuration
+│   ├── nlp/               # Natural language processing
+│   │   ├── priority.js        # Priority classification
+│   │   └── userCues.js        # Custom priority cues
+│   └── App.js             # Main application component
+├── server/                # API server for AI features
+│   ├── server.mjs            # Express server
+│   └── package.json          # Server dependencies
+└── package.json           # Main dependencies
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+## 🛠️ Available Scripts
+
+### Main Application
+- `npm start` - Runs the app in development mode
+- `npm test` - Launches the test runner
+- `npm run build` - Builds the app for production
+- `npm run eject` - Ejects from Create React App (one-way operation)
+
+### Development with AI Features
+- `npm run dev:all` - Runs all services concurrently (Ollama, API server, React app, Firebase emulators)
+
+## 🔧 Configuration
+
+### Firebase Setup
+1. Create a Firebase project at [https://console.firebase.google.com](https://console.firebase.google.com)
+2. Enable Authentication and Firestore
+3. Copy your Firebase config to `src/lib/firebase.js`
+4. Update Firestore rules in `firestore.rules`
+
+### Environment Variables
+Create a `.env.local` file in the root directory:
+```env
+REACT_APP_API_URL=http://localhost:3001
+OLLAMA_URL=http://127.0.0.1:11434
+PRIORITY_MODEL=mistral
+```
+
+## 🎯 Usage
+
+### Adding Tasks
+- Type natural language descriptions like "ASAP send report by 5pm"
+- Use priority cues like "urgent", "low prio", or add custom ones
+- Tasks are automatically prioritized using AI
+
+### Taking Notes
+- Click the "+" button in the Notes section
+- Use markdown formatting: **bold**, *italic*, `code`, # headers, - lists
+- Add tags for organization
+- Link notes to specific tasks
+- Pin important notes
+
+### Managing Priority Cues
+- Click "Priority Cues" in the header
+- Add custom keywords that influence task priority
+- Choose whether they nudge toward high, medium, or low priority
+
+## 🚀 Deployment
+
+### Build for Production
+```bash
+npm run build
+```
+
+### Deploy to Firebase Hosting
+```bash
+npm install -g firebase-tools
+firebase login
+firebase init hosting
+firebase deploy
+```
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgments
+
+- Built with [Create React App](https://github.com/facebook/create-react-app)
+- UI components styled with [Tailwind CSS](https://tailwindcss.com)
+- Backend powered by [Firebase](https://firebase.google.com)
+- AI features powered by [Ollama](https://ollama.ai)
+- Icons from [Heroicons](https://heroicons.com)
