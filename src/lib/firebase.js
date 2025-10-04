@@ -14,6 +14,9 @@ import {
   signInWithPopup,
   onAuthStateChanged,
   signOut,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  updateProfile,
 } from 'firebase/auth';
 
 const firebaseConfig = {
@@ -44,6 +47,18 @@ export function signOutUser() {
 }
 export function onAuth(cb) {
   return onAuthStateChanged(auth, cb);
+}
+
+export async function createUser(email, password, displayName) {
+  const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+  if (displayName) {
+    await updateProfile(userCredential.user, { displayName });
+  }
+  return userCredential;
+}
+
+export async function signInUser(email, password) {
+  return signInWithEmailAndPassword(auth, email, password);
 }
 
 if (process.env.NODE_ENV === 'development') {

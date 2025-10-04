@@ -3,7 +3,11 @@ import CueSettings from './components/CueSettings';
 import NotesList from './components/NotesList';
 import NoteEditor from './components/NoteEditor';
 import NotesSearch from './components/NotesSearch';
+import Calendar from './components/Calendar';
+import AuthModal from './components/AuthModal';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { derivePriority } from './nlp/priority';
+import { loadUserData, saveUserData, getDemoData } from './lib/userData';
 
 // 🔗 Firebase + data-layer helpers
 import { onAuth, signInWithGoogle, signOutUser } from './lib/firebase';
@@ -23,11 +27,6 @@ const CheckIcon = ({ className = 'w-5 h-5' }) => (
   </svg>
 );
 
-const CalendarIcon = ({ className = 'w-5 h-5' }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-  </svg>
-);
 
 const NoteIcon = ({ className = 'w-5 h-5' }) => (
   <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -71,34 +70,12 @@ async function classifyWithLLM(text, { timeoutMs = 5000 } = {}) {
   }
 }
 
-function App() {
-  // 👤 Auth + source-of-truth
-  const [user, setUser] = useState(null);
+// Main App Content Component
+const AppContent = () => {
+  const { user, requireAuth, logout, setShowAuthModal, setAuthMode } = useAuth();
 
-  // Local UI tasks (used when signed out; replaced by Firestore when signed in)
-  const [tasks, setTasks] = useState([
-    {
-      id: 1,
-      text: 'Welcome to MyPlanner! 🎉',
-      completed: false,
-      priority: 'high',
-      meta: { score: 0.8, rationale: 'demo task', due: null },
-    },
-    {
-      id: 2,
-      text: 'Try adding a new task below',
-      completed: true,
-      priority: 'medium',
-      meta: { score: 0.5, rationale: 'demo task', due: null },
-    },
-    {
-      id: 3,
-      text: 'Check out the natural language input',
-      completed: false,
-      priority: 'low',
-      meta: { score: 0.2, rationale: 'demo task', due: null },
-    },
-  ]);
+  // Initialize with demo data
+  const [tasks, setTasks] = useState([]);
 
   const [newTask, setNewTask] = useState('');
   const [showCueSettings, setShowCueSettings] = useState(false);
@@ -111,49 +88,29 @@ function App() {
   const [modelLoading, setModelLoading] = useState(true);
   const [modelReady, setModelReady] = useState(false);
 
-  // 📝 Notes state
-  const [notes, setNotes] = useState([
-    {
-      id: 1,
-      title: 'Welcome to Notes! 📝',
-      content: 'This is your first note. You can write anything here - meeting notes, ideas, reminders, or just random thoughts.\n\nTry using **bold text**, *italic text*, or `code snippets`.\n\nYou can also create lists:\n- First item\n- Second item\n- Third item\n\n## Features\n\n- **Rich formatting** with markdown\n- Tag organization\n- Task linking\n- Search and filter\n\n> This is a blockquote example\n\nCheck out [MyPlanner](https://myplanner.app) for more features!',
-      tags: ['welcome', 'demo'],
-      linkedTasks: [],
-      isPinned: true,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    },
-    {
-      id: 2,
-      title: 'Meeting Notes Template',
-      content: '# Meeting: [Topic]\n\n## Attendees\n- [Name 1]\n- [Name 2]\n\n## Agenda\n1. [Item 1]\n2. [Item 2]\n\n## Action Items\n- [ ] [Task 1] - [Assignee]\n- [ ] [Task 2] - [Assignee]\n\n## Next Steps\n- [Next action]\n- [Follow-up needed]\n\n> **Note:** Remember to follow up on action items within 24 hours',
-      tags: ['template', 'meeting'],
-      linkedTasks: [],
-      isPinned: false,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    },
-    {
-      id: 3,
-      title: 'Project Ideas',
-      content: '## Current Projects\n\n### High Priority\n- **Mobile App Redesign** - Due next month\n- API Documentation update\n\n### Medium Priority\n- User feedback analysis\n- Performance optimization\n\n### Low Priority\n- *Maybe* implement dark mode\n- Consider adding animations\n\n## Resources\n- [Design System](https://design.example.com)\n- [API Docs](https://api.example.com)\n\n`const project = { status: "in-progress" };`',
-      tags: ['projects', 'planning'],
-      linkedTasks: [],
-      isPinned: false,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    },
-  ]);
+  // Notes state
+  const [notes, setNotes] = useState([]);
   const [showNoteEditor, setShowNoteEditor] = useState(false);
   const [editingNote, setEditingNote] = useState(null);
   const [notesSearchQuery, setNotesSearchQuery] = useState('');
   const [notesFilterTag, setNotesFilterTag] = useState('');
 
-  // 🔐 Auth listener
+  // Load user data when user changes
   useEffect(() => {
-    const unsub = onAuth((u) => setUser(u || null));
-    return () => unsub && unsub();
-  }, []);
+    if (user) {
+      // Load user-specific data using Firebase UID
+      const userId = user.uid || user.id; // Support both Firebase UID and legacy ID
+      const userTasks = loadUserData(userId, 'tasks', []);
+      const userNotes = loadUserData(userId, 'notes', []);
+      setTasks(userTasks);
+      setNotes(userNotes);
+    } else {
+      // Load demo data for non-authenticated users
+      const demoData = getDemoData();
+      setTasks(demoData.tasks);
+      setNotes(demoData.notes);
+    }
+  }, [user]);
 
   // 🔄 Subscribe to Firestore tasks when signed in
   useEffect(() => {
@@ -245,6 +202,12 @@ function App() {
     e.preventDefault();
     const text = newTask.trim();
     if (!text || submitting) return;
+    
+    // Require authentication for creating tasks
+    if (!requireAuth('create task')) {
+      return;
+    }
+    
     setSubmitting(true);
 
     // Always compute local signals (fast, offline, due-date aware)
@@ -254,55 +217,26 @@ function App() {
     const llmPriority = await classifyWithLLM(text);
     const finalLabel = llmPriority || local.label;
 
+    // Add task to local state
+    const newTask = {
+      id: Date.now(),
+      text: local.cleanText,
+      completed: false,
+      priority: finalLabel,
+      meta: {
+        score: local.score ?? 0,
+        rationale: local.rationale,
+        due: local.due ? local.due.toISOString() : null,
+      },
+    };
+    
+    setTasks(prev => [...prev, newTask]);
+    
+    // Save to user data if authenticated
     if (user) {
-      // ➜ Firestore write (source of truth when signed in)
-      try {
-        await createTask(user.uid, {
-          title: local.cleanText,
-          priority: finalLabel,
-          dueAt: local.due ? new Date(local.due) : null,
-          estimateMin: local.signals?.minutes ?? null,
-          labels: [],
-          links: [],
-          nlp: {
-            score: local.score ?? 0,
-            rationale: local.rationale,
-          },
-        });
-      } catch (err) {
-        console.error('createTask failed', err);
-        // fallback to local state so the user isn’t blocked
-        setTasks(prev => [
-          ...prev,
-          {
-            id: Date.now(),
-            text: local.cleanText,
-            completed: false,
-            priority: finalLabel,
-            meta: {
-              score: local.score ?? 0,
-              rationale: local.rationale,
-              due: local.due ? local.due.toISOString() : null,
-            },
-          }
-        ]);
-      }
-    } else {
-      // ➜ Signed out: keep local state (demo mode)
-      setTasks(prev => [
-        ...prev,
-        {
-          id: Date.now(),
-          text: local.cleanText,
-          completed: false,
-          priority: finalLabel,
-          meta: {
-            score: local.score ?? 0,
-            rationale: local.rationale,
-            due: local.due ? local.due.toISOString() : null,
-          },
-        }
-      ]);
+      const userId = user.uid || user.id; // Support both Firebase UID and legacy ID
+      const updatedTasks = [...tasks, newTask];
+      saveUserData(userId, 'tasks', updatedTasks);
     }
 
     setNewTask('');
@@ -310,41 +244,61 @@ function App() {
   };
 
   const toggleTask = async (id) => {
+    // Require authentication for modifying tasks
+    if (!requireAuth('modify task')) {
+      return;
+    }
+    
     const t = tasks.find((x) => x.id === id);
     const nextDone = !(t?.completed);
+    
+    setTasks((prev) =>
+      prev.map((task) => (task.id === id ? { ...task, completed: nextDone } : task))
+    );
+    
+    // Save to user data if authenticated
     if (user) {
-      try {
-        await completeTask(user.uid, id, nextDone);
-      } catch (err) {
-        console.error('completeTask failed', err);
-      }
-    } else {
-      // local fallback
-      setTasks((prev) =>
-        prev.map((task) => (task.id === id ? { ...task, completed: nextDone } : task))
+      const userId = user.uid || user.id; // Support both Firebase UID and legacy ID
+      const updatedTasks = tasks.map((task) => 
+        task.id === id ? { ...task, completed: nextDone } : task
       );
+      saveUserData(userId, 'tasks', updatedTasks);
     }
   };
 
   const deleteTask = async (id) => {
+    // Require authentication for deleting tasks
+    if (!requireAuth('delete task')) {
+      return;
+    }
+    
+    setTasks((prev) => prev.filter((task) => task.id !== id));
+    
+    // Save to user data if authenticated
     if (user) {
-      try {
-        await deleteTaskDoc(user.uid, id);
-      } catch (err) {
-        console.error('deleteTask failed', err);
-      }
-    } else {
-      setTasks((prev) => prev.filter((task) => task.id !== id));
+      const userId = user.uid || user.id; // Support both Firebase UID and legacy ID
+      const updatedTasks = tasks.filter((task) => task.id !== id);
+      saveUserData(userId, 'tasks', updatedTasks);
     }
   };
 
   // 📝 Notes handlers
   const handleCreateNote = () => {
+    // Require authentication for creating notes
+    if (!requireAuth('create note')) {
+      return;
+    }
+    
     setEditingNote(null);
     setShowNoteEditor(true);
   };
 
   const handleEditNote = (note) => {
+    // Require authentication for editing notes
+    if (!requireAuth('edit note')) {
+      return;
+    }
+    
     setEditingNote(note);
     setShowNoteEditor(true);
   };
@@ -352,17 +306,43 @@ function App() {
   const handleSaveNote = (noteData) => {
     if (editingNote) {
       // Update existing note
-      setNotes(prev => prev.map(note => 
+      const updatedNotes = notes.map(note => 
         note.id === editingNote.id ? { ...note, ...noteData } : note
-      ));
+      );
+      setNotes(updatedNotes);
+      
+      // Save to user data if authenticated
+      if (user) {
+        const userId = user.uid || user.id; // Support both Firebase UID and legacy ID
+        saveUserData(userId, 'notes', updatedNotes);
+      }
     } else {
       // Create new note
-      setNotes(prev => [noteData, ...prev]);
+      const newNotes = [noteData, ...notes];
+      setNotes(newNotes);
+      
+      // Save to user data if authenticated
+      if (user) {
+        const userId = user.uid || user.id; // Support both Firebase UID and legacy ID
+        saveUserData(userId, 'notes', newNotes);
+      }
     }
   };
 
   const handleDeleteNote = (id) => {
-    setNotes(prev => prev.filter(note => note.id !== id));
+    // Require authentication for deleting notes
+    if (!requireAuth('delete note')) {
+      return;
+    }
+    
+    const updatedNotes = notes.filter(note => note.id !== id);
+    setNotes(updatedNotes);
+    
+    // Save to user data if authenticated
+    if (user) {
+      const userId = user.uid || user.id; // Support both Firebase UID and legacy ID
+      saveUserData(userId, 'notes', updatedNotes);
+    }
   };
 
   const handleCloseNoteEditor = () => {
@@ -446,7 +426,7 @@ function App() {
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 py-4">
+        <div className="max-w-[95vw] mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <div>
@@ -469,10 +449,10 @@ function App() {
               {user ? (
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-gray-600">
-                    Hi, {user.displayName || user.email}
+                    Hi, {user.name || user.email}
                   </span>
                   <button
-                    onClick={signOutUser}
+                    onClick={logout}
                     className="rounded-md border px-3 py-1.5 text-sm hover:bg-gray-50"
                     title="Sign out"
                   >
@@ -480,13 +460,17 @@ function App() {
                   </button>
                 </div>
               ) : (
-                <button
-                  onClick={signInWithGoogle}
-                  className="rounded-md border px-3 py-1.5 text-sm hover:bg-gray-50"
-                  title="Sign in with Google"
-                >
-                  Sign in
-                </button>
+                <div className="text-sm text-gray-500">
+                  Demo Mode - <button 
+                    onClick={() => {
+                      setAuthMode('signup');
+                      setShowAuthModal(true);
+                    }}
+                    className="text-primary-600 hover:text-primary-700 underline cursor-pointer"
+                  >
+                    Sign up to save your data
+                  </button>
+                </div>
               )}
 
               <button
@@ -512,8 +496,8 @@ function App() {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <main className="max-w-[95vw] mx-auto px-4 py-8">
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
           {/* Tasks Section */}
           <div className="lg:col-span-1">
             <div className="card animate-fade-in">
@@ -700,31 +684,8 @@ function App() {
 
           {/* Calendar Section */}
           <div className="lg:col-span-1">
-            <div className="card animate-fade-in" style={{ animationDelay: '0.1s' }}>
-              <div className="flex items-center space-x-2 mb-6">
-                <CalendarIcon className="w-5 h-5 text-primary-600" />
-                <h2 className="text-xl font-semibold text-gray-900">Calendar</h2>
-              </div>
-
-              <div className="text-center py-16">
-                <div className="bg-primary-50 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-4">
-                  <CalendarIcon className="w-10 h-10 text-primary-600" />
-                </div>
-                <h3 className="text-lg font-medium text-gray-700 mb-3">Calendar Integration</h3>
-                <p className="text-gray-500 mb-6 max-w-sm mx-auto">
-                  Connect your Google Calendar and Microsoft Outlook to see all your events in one place.
-                </p>
-                <div className="bg-gray-50 rounded-lg p-4 text-left">
-                  <h4 className="font-medium text-gray-700 mb-2">Coming Soon:</h4>
-                  <ul className="text-sm text-gray-600 space-y-1">
-                    <li>• Google Calendar sync</li>
-                    <li>• Microsoft Calendar sync</li>
-                    <li>• Task-to-event conversion</li>
-                    <li>• Smart scheduling suggestions</li>
-                    <li>• Meeting preparation</li>
-                  </ul>
-                </div>
-              </div>
+            <div className="animate-fade-in" style={{ animationDelay: '0.1s' }}>
+              <Calendar />
             </div>
           </div>
 
@@ -774,8 +735,48 @@ function App() {
           </div>
         </div>
 
+        {/* Call to Action for Non-Authenticated Users */}
+        {!user && (
+          <div className="mt-12 mb-8">
+            <div className="card bg-gradient-to-r from-primary-50 to-blue-50 border-primary-200 text-center">
+              <div className="p-8">
+                <h3 className="text-2xl font-bold text-primary-900 mb-4">
+                  Ready to get organized? 🎯
+                </h3>
+                <p className="text-primary-700 mb-6 max-w-2xl mx-auto">
+                  You're currently viewing demo data. Create a free account to start managing your own tasks, 
+                  events, and notes. Your data will be saved and synced across all your devices.
+                </p>
+                <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                  <button
+                    onClick={() => {
+                      setAuthMode('signup');
+                      setShowAuthModal(true);
+                    }}
+                    className="btn-primary px-8 py-3 text-lg"
+                  >
+                    Create Free Account
+                  </button>
+                  <button
+                    onClick={() => {
+                      setAuthMode('login');
+                      setShowAuthModal(true);
+                    }}
+                    className="px-8 py-3 text-lg border border-primary-600 text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                  >
+                    Sign In
+                  </button>
+                </div>
+                <p className="text-sm text-primary-600 mt-4">
+                  No credit card required • Free forever
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Development Progress */}
-        <div className="mt-12 grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="mt-12 grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="card bg-gradient-to-br from-primary-50 to-blue-50 border-primary-200">
             <h3 className="text-lg font-semibold text-primary-900 mb-3">🚀 Development Progress</h3>
             <div className="space-y-3">
@@ -828,7 +829,19 @@ function App() {
         user={user}
         tasks={tasks}
       />
+
+      {/* Auth Modal */}
+      <AuthModal />
     </div>
+  );
+};
+
+// Main App Component with Auth Provider
+function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 }
 
