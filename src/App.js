@@ -102,8 +102,16 @@ const AppContent = () => {
       const userId = user.uid || user.id; // Support both Firebase UID and legacy ID
       const userTasks = loadUserData(userId, 'tasks', []);
       const userNotes = loadUserData(userId, 'notes', []);
+      
+      // Always include the template note for all users
+      const demoData = getDemoData();
+      const templateNote = demoData.notes[0]; // Get the welcome note
+      
+      // Check if template note already exists in user's notes
+      const hasTemplateNote = userNotes.some(note => note.id === templateNote.id);
+      
       setTasks(userTasks);
-      setNotes(userNotes);
+      setNotes(hasTemplateNote ? userNotes : [templateNote, ...userNotes]);
     } else {
       // Load demo data for non-authenticated users
       const demoData = getDemoData();
@@ -311,20 +319,26 @@ const AppContent = () => {
       );
       setNotes(updatedNotes);
       
-      // Save to user data if authenticated
+      // Save to user data if authenticated (excluding template note)
       if (user) {
         const userId = user.uid || user.id; // Support both Firebase UID and legacy ID
-        saveUserData(userId, 'notes', updatedNotes);
+        const demoData = getDemoData();
+        const templateNoteId = demoData.notes[0].id;
+        const userNotes = updatedNotes.filter(note => note.id !== templateNoteId);
+        saveUserData(userId, 'notes', userNotes);
       }
     } else {
       // Create new note
       const newNotes = [noteData, ...notes];
       setNotes(newNotes);
       
-      // Save to user data if authenticated
+      // Save to user data if authenticated (excluding template note)
       if (user) {
         const userId = user.uid || user.id; // Support both Firebase UID and legacy ID
-        saveUserData(userId, 'notes', newNotes);
+        const demoData = getDemoData();
+        const templateNoteId = demoData.notes[0].id;
+        const userNotes = newNotes.filter(note => note.id !== templateNoteId);
+        saveUserData(userId, 'notes', userNotes);
       }
     }
   };
@@ -335,13 +349,22 @@ const AppContent = () => {
       return;
     }
     
+    // Prevent deletion of template note
+    const demoData = getDemoData();
+    const templateNoteId = demoData.notes[0].id;
+    if (id === templateNoteId) {
+      alert('This is a template note and cannot be deleted. It helps you learn how to use the notes feature!');
+      return;
+    }
+    
     const updatedNotes = notes.filter(note => note.id !== id);
     setNotes(updatedNotes);
     
-    // Save to user data if authenticated
+    // Save to user data if authenticated (excluding template note)
     if (user) {
       const userId = user.uid || user.id; // Support both Firebase UID and legacy ID
-      saveUserData(userId, 'notes', updatedNotes);
+      const userNotes = updatedNotes.filter(note => note.id !== templateNoteId);
+      saveUserData(userId, 'notes', userNotes);
     }
   };
 

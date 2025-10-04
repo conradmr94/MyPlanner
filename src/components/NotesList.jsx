@@ -206,9 +206,17 @@ export default function NotesList({
 
               {/* Note header */}
               <div className="flex items-start justify-between mb-2">
-                <h3 className="font-medium text-gray-900 text-sm leading-tight pr-8">
-                  {note.title || 'Untitled Note'}
-                </h3>
+                <div className="flex items-center space-x-2 pr-8">
+                  <h3 className="font-medium text-gray-900 text-sm leading-tight">
+                    {note.title || 'Untitled Note'}
+                  </h3>
+                  {/* Template note indicator */}
+                  {note.id === 1 && note.tags?.includes('demo') && (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                      Template
+                    </span>
+                  )}
+                </div>
                 <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button
                     onClick={(e) => {
@@ -230,21 +238,24 @@ export default function NotesList({
                   >
                     <EditIcon className="w-4 h-4" />
                   </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDelete(note.id);
-                    }}
-                    disabled={deletingId === note.id}
-                    className="p-1 text-gray-400 hover:text-red-600 transition-colors disabled:opacity-50"
-                    title="Delete note"
-                  >
-                    {deletingId === note.id ? (
-                      <div className="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin" />
-                    ) : (
-                      <TrashIcon className="w-4 h-4" />
-                    )}
-                  </button>
+                  {/* Hide delete button for template note */}
+                  {!(note.id === 1 && note.tags?.includes('demo')) && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDelete(note.id);
+                      }}
+                      disabled={deletingId === note.id}
+                      className="p-1 text-gray-400 hover:text-red-600 transition-colors disabled:opacity-50"
+                      title="Delete note"
+                    >
+                      {deletingId === note.id ? (
+                        <div className="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <TrashIcon className="w-4 h-4" />
+                      )}
+                    </button>
+                  )}
                 </div>
               </div>
 

@@ -1,8 +1,8 @@
 // Import the functions you need from the SDKs you need
 import { initializeApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
-import { connectFirestoreEmulator } from 'firebase/firestore';
-import { connectAuthEmulator } from 'firebase/auth';
+// import { connectFirestoreEmulator } from 'firebase/firestore';
+// import { connectAuthEmulator } from 'firebase/auth';
 
 import {
   getFirestore,
@@ -61,9 +61,12 @@ export async function signInUser(email, password) {
   return signInWithEmailAndPassword(auth, email, password);
 }
 
-if (process.env.NODE_ENV === 'development') {
-  try {
-    connectFirestoreEmulator(db, '127.0.0.1', 8080);
-    connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
-  } catch {}
-}
+// Note: Emulators are disabled for now. To use emulators, uncomment and start them:
+// firebase emulators:start --only auth,firestore
+// 
+// if (process.env.NODE_ENV === 'development') {
+//   try {
+//     connectFirestoreEmulator(db, '127.0.0.1', 8080);
+//     connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
+//   } catch {}
+// }
