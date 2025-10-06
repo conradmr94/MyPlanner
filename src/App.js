@@ -5,13 +5,13 @@ import NoteEditor from './components/NoteEditor';
 import NotesSearch from './components/NotesSearch';
 import Calendar from './components/Calendar';
 import AuthModal from './components/AuthModal';
+import ChatBot from './components/ChatBot';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { derivePriority } from './nlp/priority';
 import { loadUserData, saveUserData, getDemoData } from './lib/userData';
 
 // 🔗 Firebase + data-layer helpers
-import { onAuth, signInWithGoogle, signOutUser } from './lib/firebase';
-import { watchOpenTasks, createTask, completeTask, deleteTaskDoc } from './data/tasks';
+import { watchOpenTasks } from './data/tasks';
 import { watchNotes } from './data/notes';
 
 // Simple SVG icon components (accept className)
@@ -34,9 +34,9 @@ const NoteIcon = ({ className = 'w-5 h-5' }) => (
   </svg>
 );
 
-const SearchIcon = ({ className = 'w-5 h-5' }) => (
+const ChatIcon = ({ className = 'w-5 h-5' }) => (
   <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
   </svg>
 );
 
@@ -76,9 +76,16 @@ const AppContent = () => {
 
   // Initialize with demo data
   const [tasks, setTasks] = useState([]);
+  
+  // Debug: Log tasks state changes
+  useEffect(() => {
+    console.log('Tasks state changed:', tasks);
+    console.log('Tasks length:', tasks.length);
+  }, [tasks]);
 
   const [newTask, setNewTask] = useState('');
   const [showCueSettings, setShowCueSettings] = useState(false);
+  const [showChatBot, setShowChatBot] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   // NEW: Async preview state
@@ -103,6 +110,11 @@ const AppContent = () => {
       const userTasks = loadUserData(userId, 'tasks', []);
       const userNotes = loadUserData(userId, 'notes', []);
       
+      // Debug: Log user data loading
+      console.log('Loading data for user:', userId);
+      console.log('Loaded tasks from localStorage:', userTasks);
+      console.log('Loaded notes from localStorage:', userNotes);
+      
       // Always include the template note for all users
       const demoData = getDemoData();
       const templateNote = demoData.notes[0]; // Get the welcome note
@@ -115,6 +127,8 @@ const AppContent = () => {
     } else {
       // Load demo data for non-authenticated users
       const demoData = getDemoData();
+      console.log('Loading demo data for non-authenticated user');
+      console.log('Demo tasks:', demoData.tasks);
       setTasks(demoData.tasks);
       setNotes(demoData.notes);
     }
@@ -123,7 +137,9 @@ const AppContent = () => {
   // 🔄 Subscribe to Firestore tasks when signed in
   useEffect(() => {
     if (!user) return; // keep demo data when signed out
+    console.log('Setting up Firestore tasks subscription for user:', user.uid);
     const unsub = watchOpenTasks(user.uid, (docs) => {
+      console.log('Received tasks from Firestore:', docs);
       // Map Firestore docs → UI shape
       const mapped = docs.map((d) => ({
         id: d.id,                           // Firestore doc id
@@ -136,6 +152,7 @@ const AppContent = () => {
           due: d?.dueAt ?? null,
         },
       }));
+      console.log('Mapped Firestore tasks:', mapped);
       setTasks(mapped);
     });
     return () => unsub && unsub();
@@ -154,7 +171,6 @@ const AppContent = () => {
   useEffect(() => {
     const warmupModel = async () => {
       try {
-        console.log('Warming up Ollama model...');
         setModelLoading(true);
         setModelReady(false);
         const response = await fetch('http://localhost:3001/warmup', {
@@ -162,7 +178,6 @@ const AppContent = () => {
           headers: { 'Content-Type': 'application/json' }
         });
         if (response.ok) {
-          console.log('Model warmed up successfully');
           setModelReady(true);
           // Show success message briefly
           setTimeout(() => setModelReady(false), 3000);
@@ -226,7 +241,7 @@ const AppContent = () => {
     const finalLabel = llmPriority || local.label;
 
     // Add task to local state
-    const newTask = {
+    const taskToAdd = {
       id: Date.now(),
       text: local.cleanText,
       completed: false,
@@ -238,12 +253,12 @@ const AppContent = () => {
       },
     };
     
-    setTasks(prev => [...prev, newTask]);
+    setTasks(prev => [...prev, taskToAdd]);
     
     // Save to user data if authenticated
     if (user) {
       const userId = user.uid || user.id; // Support both Firebase UID and legacy ID
-      const updatedTasks = [...tasks, newTask];
+      const updatedTasks = [...tasks, taskToAdd];
       saveUserData(userId, 'tasks', updatedTasks);
     }
 
@@ -286,6 +301,28 @@ const AppContent = () => {
     if (user) {
       const userId = user.uid || user.id; // Support both Firebase UID and legacy ID
       const updatedTasks = tasks.filter((task) => task.id !== id);
+      saveUserData(userId, 'tasks', updatedTasks);
+    }
+  };
+
+  const updateTask = async (id, updates) => {
+    // Require authentication for updating tasks
+    if (!requireAuth('update task')) {
+      return;
+    }
+    
+    setTasks((prev) => 
+      prev.map((task) => 
+        task.id === id ? { ...task, ...updates } : task
+      )
+    );
+    
+    // Save to user data if authenticated
+    if (user) {
+      const userId = user.uid || user.id; // Support both Firebase UID and legacy ID
+      const updatedTasks = tasks.map((task) => 
+        task.id === id ? { ...task, ...updates } : task
+      );
       saveUserData(userId, 'tasks', updatedTasks);
     }
   };
@@ -503,15 +540,16 @@ const AppContent = () => {
               >
                 Priority Cues
               </button>
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder="Search..."
-                  className="input-primary pl-10 pr-4 py-2 w-64 text-sm"
-                  disabled
-                />
-                <SearchIcon className="absolute left-3 top-2.5 w-5 h-5 text-gray-400" />
-              </div>
+              <button
+                onClick={() => setShowChatBot(!showChatBot)}
+                className={`rounded-md border px-3 py-1.5 text-sm hover:bg-gray-50 flex items-center space-x-2 ${
+                  showChatBot ? 'bg-primary-50 border-primary-300 text-primary-700' : ''
+                }`}
+                title="Open AI Assistant"
+              >
+                <ChatIcon className="w-4 h-4" />
+                <span>AI Assistant</span>
+              </button>
               <div className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">v1.0 Dev</div>
             </div>
           </div>
@@ -758,45 +796,6 @@ const AppContent = () => {
           </div>
         </div>
 
-        {/* Call to Action for Non-Authenticated Users */}
-        {!user && (
-          <div className="mt-12 mb-8">
-            <div className="card bg-gradient-to-r from-primary-50 to-blue-50 border-primary-200 text-center">
-              <div className="p-8">
-                <h3 className="text-2xl font-bold text-primary-900 mb-4">
-                  Ready to get organized? 🎯
-                </h3>
-                <p className="text-primary-700 mb-6 max-w-2xl mx-auto">
-                  You're currently viewing demo data. Create a free account to start managing your own tasks, 
-                  events, and notes. Your data will be saved and synced across all your devices.
-                </p>
-                <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                  <button
-                    onClick={() => {
-                      setAuthMode('signup');
-                      setShowAuthModal(true);
-                    }}
-                    className="btn-primary px-8 py-3 text-lg"
-                  >
-                    Create Free Account
-                  </button>
-                  <button
-                    onClick={() => {
-                      setAuthMode('login');
-                      setShowAuthModal(true);
-                    }}
-                    className="px-8 py-3 text-lg border border-primary-600 text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
-                  >
-                    Sign In
-                  </button>
-                </div>
-                <p className="text-sm text-primary-600 mt-4">
-                  No credit card required • Free forever
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Development Progress */}
         <div className="mt-12 grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -855,6 +854,19 @@ const AppContent = () => {
 
       {/* Auth Modal */}
       <AuthModal />
+
+      {/* ChatBot */}
+      <ChatBot 
+        isOpen={showChatBot} 
+        onToggle={() => setShowChatBot(!showChatBot)} 
+        tasks={tasks}
+        onAddTask={addTask}
+        onToggleTask={toggleTask}
+        onDeleteTask={deleteTask}
+        onUpdateTask={updateTask}
+        user={user}
+      />
+      
     </div>
   );
 };

@@ -51,6 +51,13 @@ npm start
 - **Progress Tracking**: Visual progress indicators and completion statistics
 - **Firebase Integration**: Cloud sync when signed in, offline support when signed out
 
+### 🤖 AI Assistant
+- **Task-Aware Chat**: Ask questions about your specific tasks and get accurate information
+- **Interactive Chat**: Get productivity tips, task management advice, and general help
+- **Context-Aware Responses**: AI has access to your current task list and can answer questions about them
+- **Always Available**: Chat button in header for quick access without disrupting your workflow
+- **Compact Design**: Chat window stays within half the screen to keep other components visible
+
 ### 📝 Rich Note-Taking
 - **Markdown Support**: Full markdown formatting with live preview
 - **Tag Organization**: Organize notes with custom tags
@@ -188,6 +195,37 @@ PRIORITY_MODEL=mistral
 - Click "Priority Cues" in the header
 - Add custom keywords that influence task priority
 - Choose whether they nudge toward high, medium, or low priority
+
+### Using the AI Assistant
+- Click the "AI Assistant" button in the header next to Priority Cues
+- Ask questions about your specific tasks: "What are my high priority tasks?", "How many tasks do I have left?"
+- Get productivity tips and task management advice
+- The AI has access to your current task list and can provide accurate information
+- The chat window stays compact to keep your other components visible
+
+## 🔮 Future Features
+
+### 📅 Content Integration
+- **Newsletter & Podcast Calendar Integration**: Automatically add publication dates of newsletters and podcasts to your calendar
+- **AI-Powered Content Summarization**: Generate automatic summaries of newsletters and podcasts as notes when they're released
+- **Content Discovery**: Smart recommendations based on your interests and reading patterns
+
+### 👥 Collaboration Features
+- **Team Spaces**: Create shared workspaces for tasks, calendar events, and notes with team members
+- **Real-time Collaboration**: Multiple users can work on the same tasks and notes simultaneously
+- **Permission Management**: Granular control over who can view, edit, or manage different content
+- **Team Notifications**: Get notified when team members complete tasks or add important notes
+
+### 🧠 Enhanced AI Capabilities
+- **Smart Scheduling**: AI-powered calendar optimization based on task priorities and deadlines
+- **Predictive Task Management**: Suggest task breakdowns and time estimates
+- **Context-Aware Reminders**: Intelligent reminders based on your work patterns and preferences
+
+### 🗺️ Knowledge Management
+- **Idea Notes Tab**: Dedicated workspace for capturing and organizing ideas
+- **Visual Knowledge Graph**: Obsidian-style graph view showing connections between ideas, notes, and tasks
+- **Interactive Node Mapping**: Click and drag to create visual relationships between concepts
+- **Idea Linking**: Connect ideas to tasks, calendar events, and other notes for better context
 
 ## 🚀 Deployment
 
