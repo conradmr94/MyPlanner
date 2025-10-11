@@ -5,7 +5,8 @@ import NoteEditor from './components/NoteEditor';
 import NotesSearch from './components/NotesSearch';
 import Calendar from './components/Calendar';
 import AuthModal from './components/AuthModal';
-import ChatBot from './components/ChatBot';
+import TeamSpaces from './components/TeamSpaces';
+import TeamSpaceDetail from './components/TeamSpaceDetail';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { derivePriority } from './nlp/priority';
 import { loadUserData, saveUserData, getDemoData } from './lib/userData';
@@ -34,11 +35,6 @@ const NoteIcon = ({ className = 'w-5 h-5' }) => (
   </svg>
 );
 
-const ChatIcon = ({ className = 'w-5 h-5' }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-  </svg>
-);
 
 // --- LLM classifier helper (Ollama-backed API) ---------------------------------
 async function classifyWithLLM(text, { timeoutMs = 5000 } = {}) {
@@ -74,6 +70,10 @@ async function classifyWithLLM(text, { timeoutMs = 5000 } = {}) {
 const AppContent = () => {
   const { user, requireAuth, logout, setShowAuthModal, setAuthMode } = useAuth();
 
+  // Navigation state
+  const [currentView, setCurrentView] = useState('main'); // 'main', 'teams', 'team-detail'
+  const [selectedTeam, setSelectedTeam] = useState(null);
+
   // Initialize with demo data
   const [tasks, setTasks] = useState([]);
   
@@ -85,7 +85,6 @@ const AppContent = () => {
 
   const [newTask, setNewTask] = useState('');
   const [showCueSettings, setShowCueSettings] = useState(false);
-  const [showChatBot, setShowChatBot] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   // NEW: Async preview state
@@ -435,6 +434,27 @@ const AppContent = () => {
   const completedTasks = tasks.filter((t) => t.completed).length;
   const totalTasks = tasks.length;
 
+  // Navigation handlers
+  const handleShowTeams = () => {
+    setCurrentView('teams');
+    setSelectedTeam(null);
+  };
+
+  const handleShowMain = () => {
+    setCurrentView('main');
+    setSelectedTeam(null);
+  };
+
+  const handleSelectTeam = (team) => {
+    setSelectedTeam(team);
+    setCurrentView('team-detail');
+  };
+
+  const handleBackToTeams = () => {
+    setCurrentView('teams');
+    setSelectedTeam(null);
+  };
+
   // Optional: sort by score (desc), completed at bottom
   const visibleTasks = useMemo(() => {
     const active = tasks
@@ -505,6 +525,30 @@ const AppContent = () => {
               )}
             </div>
             <div className="flex items-center space-x-3">
+              {/* Navigation */}
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={handleShowMain}
+                  className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+                    currentView === 'main' 
+                      ? 'bg-primary-100 text-primary-700' 
+                      : 'hover:bg-gray-100'
+                  }`}
+                >
+                  My Planner
+                </button>
+                <button
+                  onClick={handleShowTeams}
+                  className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+                    currentView === 'teams' || currentView === 'team-detail'
+                      ? 'bg-primary-100 text-primary-700' 
+                      : 'hover:bg-gray-100'
+                  }`}
+                >
+                  Team Spaces
+                </button>
+              </div>
+
               {/* 🔐 Auth UI */}
               {user ? (
                 <div className="flex items-center gap-2">
@@ -540,16 +584,6 @@ const AppContent = () => {
               >
                 Priority Cues
               </button>
-              <button
-                onClick={() => setShowChatBot(!showChatBot)}
-                className={`rounded-md border px-3 py-1.5 text-sm hover:bg-gray-50 flex items-center space-x-2 ${
-                  showChatBot ? 'bg-primary-50 border-primary-300 text-primary-700' : ''
-                }`}
-                title="Open AI Assistant"
-              >
-                <ChatIcon className="w-4 h-4" />
-                <span>AI Assistant</span>
-              </button>
               <div className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">v1.0 Dev</div>
             </div>
           </div>
@@ -557,7 +591,8 @@ const AppContent = () => {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-[95vw] mx-auto px-4 py-8">
+      {currentView === 'main' && (
+        <main className="max-w-[95vw] mx-auto px-4 py-8">
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
           {/* Tasks Section */}
           <div className="lg:col-span-1">
@@ -837,7 +872,18 @@ const AppContent = () => {
             </ul>
           </div>
         </div>
-      </main>
+        </main>
+      )}
+
+      {/* Team Spaces View */}
+      {currentView === 'teams' && (
+        <TeamSpaces onSelectTeam={handleSelectTeam} />
+      )}
+
+      {/* Team Detail View */}
+      {currentView === 'team-detail' && selectedTeam && (
+        <TeamSpaceDetail team={selectedTeam} onBack={handleBackToTeams} />
+      )}
 
       {/* Priority Cues modal */}
       <CueSettings isOpen={showCueSettings} onClose={() => setShowCueSettings(false)} />
@@ -855,17 +901,6 @@ const AppContent = () => {
       {/* Auth Modal */}
       <AuthModal />
 
-      {/* ChatBot */}
-      <ChatBot 
-        isOpen={showChatBot} 
-        onToggle={() => setShowChatBot(!showChatBot)} 
-        tasks={tasks}
-        onAddTask={addTask}
-        onToggleTask={toggleTask}
-        onDeleteTask={deleteTask}
-        onUpdateTask={updateTask}
-        user={user}
-      />
       
     </div>
   );

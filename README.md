@@ -51,12 +51,6 @@ npm start
 - **Progress Tracking**: Visual progress indicators and completion statistics
 - **Firebase Integration**: Cloud sync when signed in, offline support when signed out
 
-### 🤖 AI Assistant
-- **Task-Aware Chat**: Ask questions about your specific tasks and get accurate information
-- **Interactive Chat**: Get productivity tips, task management advice, and general help
-- **Context-Aware Responses**: AI has access to your current task list and can answer questions about them
-- **Always Available**: Chat button in header for quick access without disrupting your workflow
-- **Compact Design**: Chat window stays within half the screen to keep other components visible
 
 ### 📝 Rich Note-Taking
 - **Markdown Support**: Full markdown formatting with live preview
@@ -196,12 +190,6 @@ PRIORITY_MODEL=mistral
 - Add custom keywords that influence task priority
 - Choose whether they nudge toward high, medium, or low priority
 
-### Using the AI Assistant
-- Click the "AI Assistant" button in the header next to Priority Cues
-- Ask questions about your specific tasks: "What are my high priority tasks?", "How many tasks do I have left?"
-- Get productivity tips and task management advice
-- The AI has access to your current task list and can provide accurate information
-- The chat window stays compact to keep your other components visible
 
 ## 🔮 Future Features
 
