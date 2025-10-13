@@ -1,5 +1,9 @@
 // src/components/TeamSpaces.jsx
 import React, { useState, useMemo } from 'react';
+import Calendar from './Calendar';
+import NotesList from './NotesList';
+import NoteEditor from './NoteEditor';
+import NotesSearch from './NotesSearch';
 
 // Simple SVG icon components
 const CheckIcon = ({ className = 'w-5 h-5' }) => (
@@ -68,6 +72,12 @@ const InfoIcon = ({ className = 'w-5 h-5' }) => (
   </svg>
 );
 
+const NoteIcon = ({ className = 'w-5 h-5' }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+  </svg>
+);
+
 const TeamSpaces = ({ 
   teams = [], 
   setTeams = () => {},
@@ -77,6 +87,10 @@ const TeamSpaces = ({
   deleteTask = () => {},
   updateTask = () => {},
   changePriority = () => {},
+  notes = [],
+  onEditNote = () => {},
+  onDeleteNote = () => {},
+  onSaveNote = () => {},
   user = null
 }) => {
   const [selectedTeam, setSelectedTeam] = useState(null);
@@ -100,6 +114,13 @@ const TeamSpaces = ({
   const [newMemberEmail, setNewMemberEmail] = useState('');
   const [editingTaskId, setEditingTaskId] = useState(null);
   const [editingTaskText, setEditingTaskText] = useState('');
+  const [showNoteEditor, setShowNoteEditor] = useState(false);
+  const [editingNote, setEditingNote] = useState(null);
+  const [notesSearchQuery, setNotesSearchQuery] = useState('');
+  const [notesFilterTag, setNotesFilterTag] = useState('');
+  
+  // Focus mode state
+  const [focusedSection, setFocusedSection] = useState(null); // 'tasks', 'calendar', 'notes', or null
 
   const getPriorityColor = (priority) => {
     switch (priority) {
@@ -244,7 +265,7 @@ const TeamSpaces = ({
   };
 
   const getTeamStats = (teamId) => {
-    const teamTasks = tasks.filter(task => task.teamId == teamId);
+    const teamTasks = tasks.filter(task => task.teamId === teamId);
     const completedTasks = teamTasks.filter(task => task.completed).length;
     const totalTasks = teamTasks.length;
     const activeTasks = totalTasks - completedTasks;
@@ -283,6 +304,21 @@ const TeamSpaces = ({
     setEditingTaskText('');
   };
 
+  const handleCreateNote = () => {
+    setEditingNote(null);
+    setShowNoteEditor(true);
+  };
+
+  const handleEditNote = (note) => {
+    setEditingNote(note);
+    setShowNoteEditor(true);
+  };
+
+  const handleCloseNoteEditor = () => {
+    setShowNoteEditor(false);
+    setEditingNote(null);
+  };
+
   const addTask = async (e) => {
     e.preventDefault();
     const text = newTask.trim();
@@ -314,6 +350,13 @@ const TeamSpaces = ({
     // Use == to handle both string and number comparisons
     return tasks.filter(task => task.teamId === selectedTeam.id);
   }, [tasks, selectedTeam]);
+
+  // Get current team's notes
+  const currentTeamNotes = useMemo(() => {
+    if (!selectedTeam) return [];
+    // Use == to handle both string and number comparisons
+    return notes.filter(note => note.teamId === selectedTeam.id);
+  }, [notes, selectedTeam]);
 
   const completedTasks = currentTeamTasks.filter((t) => t.completed).length;
   const totalTasks = currentTeamTasks.length;
@@ -559,15 +602,20 @@ const TeamSpaces = ({
           </div>
         </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-          {/* Team Tasks Section */}
-          <div className="lg:col-span-1">
-            <div className="card animate-fade-in">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center space-x-2">
-                  <CheckIcon className="w-5 h-5 text-primary-600" />
-                  <h2 className="text-xl font-semibold text-gray-900">Team Tasks</h2>
-                </div>
+        {!focusedSection && (
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+            {/* Team Tasks Section */}
+            <div className="lg:col-span-1">
+              <div className="card animate-fade-in">
+                <div className="flex items-center justify-between mb-6">
+                  <div 
+                    className="flex items-center space-x-2 cursor-pointer hover:text-primary-700 transition-colors group"
+                    onClick={() => setFocusedSection('tasks')}
+                    title="Click to focus on Team Tasks"
+                  >
+                    <CheckIcon className="w-5 h-5 text-primary-600 group-hover:scale-110 transition-transform" />
+                    <h2 className="text-xl font-semibold text-gray-900 group-hover:text-primary-700">Team Tasks</h2>
+                  </div>
                 <div className="flex items-center space-x-2">
                   <span className="text-sm text-gray-500">
                     {currentTeamTasks.filter((t) => !t.completed).length} remaining
@@ -773,23 +821,344 @@ const TeamSpaces = ({
             </div>
           </div>
 
-          {/* Team Collaboration Section */}
-          <div className="lg:col-span-2">
+          {/* Team Calendar Section */}
+          <div className="lg:col-span-1">
             <div className="card animate-fade-in" style={{ animationDelay: '0.1s' }}>
-              <div className="flex items-center space-x-2 mb-4">
-                <UsersIcon className="w-5 h-5 text-primary-600" />
-                <h2 className="text-xl font-semibold text-gray-900">Team Collaboration</h2>
-              </div>
-              <div className="text-center py-12 text-gray-500">
-                <div className="bg-gray-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
-                  <UsersIcon className="w-8 h-8 text-gray-400" />
+              <div className="flex items-center justify-between mb-6">
+                <div 
+                  className="flex items-center space-x-2 cursor-pointer hover:text-primary-700 transition-colors group"
+                  onClick={() => setFocusedSection('calendar')}
+                  title="Click to focus on Team Calendar"
+                >
+                  <svg className="w-5 h-5 text-primary-600 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <h2 className="text-xl font-semibold text-gray-900 group-hover:text-primary-700">Team Calendar</h2>
                 </div>
-                <p className="text-lg font-medium mb-2">Coming Soon</p>
-                <p className="text-sm">Team calendar, shared notes, and real-time collaboration features will be available here.</p>
+              </div>
+              <Calendar 
+                teams={teams} 
+                filterTeamId={selectedTeam.id}
+                autoAssignTeamId={selectedTeam.id}
+                hideHeader={true}
+              />
+            </div>
+          </div>
+
+          {/* Team Notes Section */}
+          <div className="lg:col-span-1">
+            <div className="card animate-fade-in" style={{ animationDelay: '0.2s' }}>
+              <div className="flex items-center justify-between mb-6">
+                <div 
+                  className="flex items-center space-x-2 cursor-pointer hover:text-primary-700 transition-colors group"
+                  onClick={() => setFocusedSection('notes')}
+                  title="Click to focus on Team Notes"
+                >
+                  <NoteIcon className="w-5 h-5 text-primary-600 group-hover:scale-110 transition-transform" />
+                  <h2 className="text-xl font-semibold text-gray-900 group-hover:text-primary-700">Team Notes</h2>
+                </div>
+                <button
+                  onClick={handleCreateNote}
+                  className="btn-primary px-3 py-1.5 text-sm"
+                  title="Create new note"
+                >
+                  <PlusIcon className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Notes List */}
+              <div className="max-h-96 overflow-y-auto">
+                <NotesList
+                  notes={notes}
+                  onEditNote={handleEditNote}
+                  onDeleteNote={onDeleteNote}
+                  searchQuery={notesSearchQuery}
+                  filterTag={notesFilterTag}
+                  onFilterTag={setNotesFilterTag}
+                  filterTeamId={selectedTeam.id}
+                  user={user}
+                />
               </div>
             </div>
           </div>
         </div>
+        )}
+
+        {/* Focused Section View */}
+        {focusedSection && (
+          <div className="fixed inset-0 z-40 bg-black bg-opacity-50 flex items-center justify-center p-2 animate-fade-in">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-[95vw] max-h-[95vh] overflow-hidden flex flex-col animate-scale-in">
+              {/* Focused Section Header */}
+              <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-primary-50 to-blue-50">
+                <div className="flex items-center space-x-3">
+                  {focusedSection === 'tasks' && (
+                    <>
+                      <CheckIcon className="w-6 h-6 text-primary-600" />
+                      <h2 className="text-2xl font-bold text-gray-900">Team Tasks</h2>
+                    </>
+                  )}
+                  {focusedSection === 'calendar' && (
+                    <>
+                      <svg className="w-6 h-6 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      <h2 className="text-2xl font-bold text-gray-900">Team Calendar</h2>
+                    </>
+                  )}
+                  {focusedSection === 'notes' && (
+                    <>
+                      <NoteIcon className="w-6 h-6 text-primary-600" />
+                      <h2 className="text-2xl font-bold text-gray-900">Team Notes</h2>
+                    </>
+                  )}
+                </div>
+                <button
+                  onClick={() => setFocusedSection(null)}
+                  className="p-2 hover:bg-white rounded-lg transition-colors text-gray-500 hover:text-gray-700"
+                  title="Exit focus mode"
+                >
+                  <XIcon className="w-6 h-6" />
+                </button>
+              </div>
+
+              {/* Focused Section Content */}
+              <div className="flex-1 overflow-y-auto p-4">
+                {focusedSection === 'tasks' && (
+                  <div className="w-full h-full">
+                    {/* Add Task Form */}
+                    <form onSubmit={addTask} className="mb-6">
+                      <div className="flex space-x-2">
+                        <input
+                          type="text"
+                          value={newTask}
+                          onChange={(e) => setNewTask(e.target.value)}
+                          placeholder="Add team task..."
+                          className="input-primary flex-1 text-sm"
+                        />
+                        <button
+                          type="submit"
+                          className="btn-primary px-3 disabled:opacity-50 disabled:cursor-not-allowed"
+                          disabled={!newTask.trim() || submitting}
+                          title="Add task"
+                        >
+                          {submitting ? (
+                            <span className="text-xs">...</span>
+                          ) : (
+                            <PlusIcon />
+                          )}
+                        </button>
+                      </div>
+
+                      <p className="text-xs text-gray-500 mt-2">
+                        💡 Add tasks for your team to collaborate on
+                      </p>
+                    </form>
+
+                    {/* Task List */}
+                    <div className="space-y-3">
+                      {visibleTasks.map((task, index) => (
+                        <div
+                          key={task.id}
+                          className={`flex items-start space-x-3 p-4 rounded-lg border-l-4 transition-all duration-200 hover:shadow-sm ${
+                            task.completed ? 'bg-gray-50 border-l-gray-300 opacity-75' : getPriorityColor(task.priority)
+                          }`}
+                          style={{ animationDelay: `${index * 0.06}s` }}
+                        >
+                          <button
+                            onClick={() => toggleTask(task.id)}
+                            className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all mt-0.5 ${
+                              task.completed
+                                ? 'bg-green-500 border-green-500 text-white'
+                                : 'border-gray-300 hover:border-primary-400 hover:bg-primary-50'
+                            }`}
+                            title={task.completed ? 'Mark as not done' : 'Mark as done'}
+                          >
+                            {task.completed && <CheckIcon className="w-3 h-3" />}
+                          </button>
+
+                          <div className="flex-1 min-w-0">
+                            {editingTaskId === task.id ? (
+                              <div className="flex items-center space-x-2 mb-2">
+                                <input
+                                  type="text"
+                                  value={editingTaskText}
+                                  onChange={(e) => setEditingTaskText(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') saveEditingTask();
+                                    if (e.key === 'Escape') cancelEditingTask();
+                                  }}
+                                  className="flex-1 text-sm border border-primary-400 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                                  autoFocus
+                                />
+                                <button
+                                  onClick={saveEditingTask}
+                                  className="p-1 text-green-600 hover:text-green-700 transition-colors"
+                                  title="Save"
+                                >
+                                  <SaveIcon />
+                                </button>
+                                <button
+                                  onClick={cancelEditingTask}
+                                  className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
+                                  title="Cancel"
+                                >
+                                  <CancelIcon />
+                                </button>
+                              </div>
+                            ) : (
+                              <p
+                                className={`text-sm ${
+                                  task.completed ? 'text-gray-500 line-through' : 'text-gray-900'
+                                }`}
+                              >
+                                {task.text}
+                              </p>
+                            )}
+
+                            {/* Priority + rationale/due */}
+                            {!task.completed && editingTaskId !== task.id && (
+                              <div className="space-y-2 mt-1">
+                                <div className="flex items-center flex-wrap gap-x-2 gap-y-1">
+                                  <div className={`w-2 h-2 rounded-full ${getPriorityDot(task.priority)}`}></div>
+                                  <span className="text-xs text-gray-600 capitalize">{task.priority} priority</span>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <span className="text-xs text-gray-500">Change priority:</span>
+                                  <div className="flex space-x-1">
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        changePriority(task.id, 'low');
+                                      }}
+                                      className={`px-2 py-0.5 text-xs rounded transition-colors ${
+                                        task.priority === 'low'
+                                          ? 'bg-gray-500 text-white'
+                                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                      }`}
+                                    >
+                                      Low
+                                    </button>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        changePriority(task.id, 'medium');
+                                      }}
+                                      className={`px-2 py-0.5 text-xs rounded transition-colors ${
+                                        task.priority === 'medium'
+                                          ? 'bg-blue-500 text-white'
+                                          : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                                      }`}
+                                    >
+                                      Med
+                                    </button>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        changePriority(task.id, 'high');
+                                      }}
+                                      className={`px-2 py-0.5 text-xs rounded transition-colors ${
+                                        task.priority === 'high'
+                                          ? 'bg-red-500 text-white'
+                                          : 'bg-red-100 text-red-700 hover:bg-red-200'
+                                      }`}
+                                    >
+                                      High
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+
+                          {editingTaskId !== task.id && (
+                            <div className="flex items-center space-x-1">
+                              <button
+                                onClick={() => startEditingTask(task)}
+                                className="p-1 text-gray-400 hover:text-blue-500 transition-colors"
+                                title="Edit task"
+                              >
+                                <EditIcon />
+                              </button>
+                              <button
+                                onClick={() => deleteTask(task.id)}
+                                className="p-1 text-gray-400 hover:text-red-500 transition-colors"
+                                title="Delete task"
+                              >
+                                ×
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+
+                    {currentTeamTasks.length === 0 && (
+                      <div className="text-center py-12 text-gray-500">
+                        <CheckIcon className="mx-auto mb-3 w-12 h-12 text-gray-300" />
+                        <p className="text-lg font-medium mb-2">No team tasks yet</p>
+                        <p className="text-sm">Add your first team task above to get started!</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {focusedSection === 'calendar' && (
+                  <div className="w-full h-full">
+                    <Calendar 
+                      teams={teams} 
+                      filterTeamId={selectedTeam.id}
+                      autoAssignTeamId={selectedTeam.id}
+                    />
+                  </div>
+                )}
+
+                {focusedSection === 'notes' && (
+                  <div className="w-full h-full">
+                    <div className="flex items-center justify-between mb-6">
+                      <button
+                        onClick={handleCreateNote}
+                        className="btn-primary px-4 py-2 text-sm"
+                        title="Create new note"
+                      >
+                        <div className="flex items-center space-x-2">
+                          <PlusIcon className="w-4 h-4" />
+                          <span>New Team Note</span>
+                        </div>
+                      </button>
+                    </div>
+
+                    {/* Notes Search */}
+                    <div className="mb-6">
+                      <NotesSearch
+                        searchQuery={notesSearchQuery}
+                        onSearchChange={setNotesSearchQuery}
+                        filterTag={notesFilterTag}
+                        onFilterChange={setNotesFilterTag}
+                        allTags={[]}
+                        totalNotes={currentTeamNotes.length}
+                        filteredCount={currentTeamNotes.length}
+                      />
+                    </div>
+
+                    {/* Notes List */}
+                    <div>
+                      <NotesList
+                        notes={currentTeamNotes}
+                        onEditNote={handleEditNote}
+                        onDeleteNote={onDeleteNote}
+                        searchQuery={notesSearchQuery}
+                        filterTag={notesFilterTag}
+                        onFilterTag={setNotesFilterTag}
+                        filterTeamId={selectedTeam.id}
+                        user={user}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Edit Team Modal */}
         {showEditTeamModal && (
@@ -1156,6 +1525,18 @@ const TeamSpaces = ({
             </div>
           </div>
         )}
+
+        {/* Note Editor Modal */}
+        <NoteEditor
+          note={editingNote}
+          isOpen={showNoteEditor}
+          onClose={handleCloseNoteEditor}
+          onSave={onSaveNote}
+          user={user}
+          tasks={tasks}
+          teams={teams}
+          autoAssignTeamId={selectedTeam?.id}
+        />
       </main>
     </div>
   );

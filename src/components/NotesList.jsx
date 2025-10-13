@@ -34,6 +34,7 @@ export default function NotesList({
   searchQuery = '', 
   filterTag = '',
   onFilterTag,
+  filterTeamId = null,
   user 
 }) {
   const [deletingId, setDeletingId] = useState(null);
@@ -41,6 +42,12 @@ export default function NotesList({
   // Filter and sort notes
   const filteredNotes = useMemo(() => {
     let filtered = notes;
+
+    // Filter by team (if viewing from Team Space)
+    if (filterTeamId !== null) {
+      // Use loose equality to handle both string and number teamIds
+      filtered = filtered.filter(note => note.teamId === filterTeamId);
+    }
 
     // Filter by search query
     if (searchQuery.trim()) {
@@ -65,7 +72,7 @@ export default function NotesList({
       if (!a.isPinned && b.isPinned) return 1;
       return new Date(b.updatedAt?.toDate?.() || b.updatedAt) - new Date(a.updatedAt?.toDate?.() || a.updatedAt);
     });
-  }, [notes, searchQuery, filterTag]);
+  }, [notes, searchQuery, filterTag, filterTeamId]);
 
   // Get all unique tags for filtering
   const allTags = useMemo(() => {

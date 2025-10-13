@@ -34,13 +34,16 @@ export default function NoteEditor({
   onClose, 
   onSave, 
   user,
-  tasks = [] 
+  tasks = [],
+  teams = [],
+  autoAssignTeamId = null
 }) {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [tags, setTags] = useState([]);
   const [newTag, setNewTag] = useState('');
   const [linkedTasks, setLinkedTasks] = useState([]);
+  const [teamId, setTeamId] = useState(autoAssignTeamId || null);
   const [isPinned, setIsPinned] = useState(false);
   const [saving, setSaving] = useState(false);
   const [showLinkTasks, setShowLinkTasks] = useState(false);
@@ -56,17 +59,19 @@ export default function NoteEditor({
       setContent(note.content || '');
       setTags(note.tags || []);
       setLinkedTasks(note.linkedTasks || []);
+      setTeamId(note.teamId || null);
       setIsPinned(note.isPinned || false);
     } else {
       setTitle('');
       setContent('');
       setTags([]);
       setLinkedTasks([]);
+      setTeamId(autoAssignTeamId || null);
       setIsPinned(false);
     }
     // Always start in edit mode when opening a note
     setShowPreview(false);
-  }, [note]);
+  }, [note, autoAssignTeamId]);
 
   // Focus title input when opening
   useEffect(() => {
@@ -87,6 +92,7 @@ export default function NoteEditor({
         content: content.trim(),
         tags,
         linkedTasks,
+        teamId: teamId ? Number(teamId) : null,
         isPinned,
       };
 
@@ -288,6 +294,32 @@ export default function NoteEditor({
                 className="w-full h-full resize-none border-none outline-none placeholder-gray-400 text-gray-900 leading-relaxed"
               />
             )}
+          </div>
+
+          {/* Team Assignment */}
+          <div className="px-6 py-3 border-t border-gray-100">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Team Assignment
+            </label>
+            <select
+              value={teamId || ''}
+              onChange={(e) => setTeamId(e.target.value || null)}
+              className="input-primary text-sm"
+            >
+              <option value="">No team (Personal note)</option>
+              {teams.length === 0 ? (
+                <option value="" disabled>No teams available - create one in Team Spaces</option>
+              ) : (
+                teams.map(team => (
+                  <option key={team.id} value={team.id}>
+                    {team.name}
+                  </option>
+                ))
+              )}
+            </select>
+            <p className="text-xs text-gray-500 mt-1">
+              Assign this note to a team to share it with team members
+            </p>
           </div>
 
           {/* Task Linking */}

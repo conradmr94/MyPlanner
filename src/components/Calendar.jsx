@@ -63,7 +63,7 @@ const QuickAddButton = ({ onClick, className = "" }) => (
 );
 
 // Event Modal Component
-const EventModal = ({ isOpen, onClose, onSave, event = null, selectedDate, selectedTime = null }) => {
+const EventModal = ({ isOpen, onClose, onSave, event = null, selectedDate, selectedTime = null, teams = [], autoAssignTeamId = null }) => {
   const [formData, setFormData] = useState({
     title: '',
     date: '',
@@ -73,6 +73,7 @@ const EventModal = ({ isOpen, onClose, onSave, event = null, selectedDate, selec
     color: 'blue',
     description: '',
     guests: [],
+    teamId: autoAssignTeamId || null,
     recurring: {
       enabled: false,
       pattern: 'weekly',
@@ -93,6 +94,7 @@ const EventModal = ({ isOpen, onClose, onSave, event = null, selectedDate, selec
         color: event.color,
         description: event.description || '',
         guests: event.guests || [],
+        teamId: event.teamId || null,
         recurring: event.recurring ? {
           enabled: true,
           pattern: event.recurring.pattern,
@@ -113,10 +115,11 @@ const EventModal = ({ isOpen, onClose, onSave, event = null, selectedDate, selec
       setFormData(prev => ({
         ...prev,
         date: date.toISOString().split('T')[0],
-        time: time
+        time: time,
+        teamId: autoAssignTeamId || null
       }));
     }
-  }, [event, selectedDate]);
+  }, [event, selectedDate, selectedTime, autoAssignTeamId]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -131,6 +134,7 @@ const EventModal = ({ isOpen, onClose, onSave, event = null, selectedDate, selec
       color: formData.color,
       description: formData.description.trim(),
       guests: formData.guests,
+      teamId: formData.teamId ? Number(formData.teamId) : null,
       recurring: formData.recurring.enabled ? {
         pattern: formData.recurring.pattern,
         interval: parseInt(formData.recurring.interval),
@@ -312,6 +316,33 @@ const EventModal = ({ isOpen, onClose, onSave, event = null, selectedDate, selec
             />
           </div>
 
+          {/* Team Assignment */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Team Assignment
+            </label>
+            <select
+              name="teamId"
+              value={formData.teamId || ''}
+              onChange={handleChange}
+              className="input-primary"
+            >
+              <option value="">No team (Personal event)</option>
+              {teams.length === 0 ? (
+                <option value="" disabled>No teams available - create one in Team Spaces</option>
+              ) : (
+                teams.map(team => (
+                  <option key={team.id} value={team.id}>
+                    {team.name}
+                  </option>
+                ))
+              )}
+            </select>
+            <p className="text-xs text-gray-500 mt-1">
+              Assign this event to a team to share it with team members
+            </p>
+          </div>
+
           {/* Guests Section */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -446,7 +477,7 @@ const EventModal = ({ isOpen, onClose, onSave, event = null, selectedDate, selec
   );
 };
 
-const Calendar = () => {
+const Calendar = ({ teams = [], filterTeamId = null, autoAssignTeamId = null, hideHeader = false }) => {
   const { user, requireAuth } = useAuth();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState('month'); // 'month', 'week', 'day'
@@ -609,6 +640,11 @@ const Calendar = () => {
   // Filter events based on search and filter criteria
   const getFilteredEvents = (eventsList) => {
     return eventsList.filter(event => {
+      // Team filter (if viewing from Team Space)
+      if (filterTeamId !== null && event.teamId !== filterTeamId) {
+        return false;
+      }
+      
       // Search query filter
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase();
@@ -864,38 +900,40 @@ const Calendar = () => {
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+    <div className={hideHeader ? "" : "bg-white rounded-lg shadow-sm border border-gray-200 p-6"}>
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center space-x-2">
-          <CalendarIcon className="w-5 h-5 text-primary-600" />
-          <h2 className="text-xl font-semibold text-gray-900">Calendar</h2>
-        </div>
-        <div className="flex items-center space-x-2">
-          <button
-            onClick={goToToday}
-            className="px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
-          >
-            Today
-          </button>
-          <div className="flex items-center space-x-1">
+      {!hideHeader && (
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center space-x-2">
+            <CalendarIcon className="w-5 h-5 text-primary-600" />
+            <h2 className="text-xl font-semibold text-gray-900">Calendar</h2>
+          </div>
+          <div className="flex items-center space-x-2">
             <button
-              onClick={goToPrevious}
-              className="p-1.5 hover:bg-gray-100 rounded-md transition-colors"
-              title={`Previous ${viewMode}`}
+              onClick={goToToday}
+              className="px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
             >
-              <ChevronLeftIcon className="w-4 h-4" />
+              Today
             </button>
-            <button
-              onClick={goToNext}
-              className="p-1.5 hover:bg-gray-100 rounded-md transition-colors"
-              title={`Next ${viewMode}`}
-            >
-              <ChevronRightIcon className="w-4 h-4" />
-            </button>
+            <div className="flex items-center space-x-1">
+              <button
+                onClick={goToPrevious}
+                className="p-1.5 hover:bg-gray-100 rounded-md transition-colors"
+                title={`Previous ${viewMode}`}
+              >
+                <ChevronLeftIcon className="w-4 h-4" />
+              </button>
+              <button
+                onClick={goToNext}
+                className="p-1.5 hover:bg-gray-100 rounded-md transition-colors"
+                title={`Next ${viewMode}`}
+              >
+                <ChevronRightIcon className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Period Display */}
       <div className="text-center mb-6">
@@ -1383,6 +1421,8 @@ const Calendar = () => {
         event={editingEvent}
         selectedDate={selectedDate}
         selectedTime={selectedTime}
+        teams={teams}
+        autoAssignTeamId={autoAssignTeamId}
       />
     </div>
   );

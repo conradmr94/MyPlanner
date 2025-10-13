@@ -193,6 +193,11 @@ PRIORITY_MODEL=mistral
 
 ## 🔮 Future Features
 
+### Notes
+- Make formatting user friendly
+   - Should be able to right-click and change formatting
+   - Option for no manual markdown (auto formatting)
+
 ### 📅 Content Integration
 - **Newsletter & Podcast Calendar Integration**: Automatically add publication dates of newsletters and podcasts to your calendar
 - **AI-Powered Content Summarization**: Generate automatic summaries of newsletters and podcasts as notes when they're released

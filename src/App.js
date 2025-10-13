@@ -52,6 +52,12 @@ const CancelIcon = ({ className = 'w-4 h-4' }) => (
   </svg>
 );
 
+const XIcon = ({ className = 'w-5 h-5' }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+  </svg>
+);
+
 
 // --- LLM classifier helper (Ollama-backed API) ---------------------------------
 async function classifyWithLLM(text, { timeoutMs = 5000 } = {}) {
@@ -89,6 +95,9 @@ const AppContent = () => {
 
   // Navigation state
   const [currentView, setCurrentView] = useState('main'); // 'main'
+
+  // Focus mode state
+  const [focusedSection, setFocusedSection] = useState(null); // 'tasks', 'calendar', 'notes', or null
 
   // Teams state
   const [teams, setTeams] = useState([]);
@@ -647,16 +656,20 @@ const AppContent = () => {
       </header>
 
       {/* Main Content */}
-      {currentView === 'main' && (
+      {currentView === 'main' && !focusedSection && (
         <main className="max-w-[95vw] mx-auto px-4 py-8">
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
           {/* Tasks Section */}
           <div className="lg:col-span-1">
             <div className="card animate-fade-in">
               <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center space-x-2">
-                  <CheckIcon className="w-5 h-5 text-primary-600" />
-                  <h2 className="text-xl font-semibold text-gray-900">Tasks</h2>
+                <div 
+                  className="flex items-center space-x-2 cursor-pointer hover:text-primary-700 transition-colors group"
+                  onClick={() => setFocusedSection('tasks')}
+                  title="Click to focus on Tasks"
+                >
+                  <CheckIcon className="w-5 h-5 text-primary-600 group-hover:scale-110 transition-transform" />
+                  <h2 className="text-xl font-semibold text-gray-900 group-hover:text-primary-700">Tasks</h2>
                 </div>
                 <div className="flex items-center space-x-2">
                   <span className="text-sm text-gray-500">
@@ -951,8 +964,20 @@ const AppContent = () => {
 
           {/* Calendar Section */}
           <div className="lg:col-span-1">
-            <div className="animate-fade-in" style={{ animationDelay: '0.1s' }}>
-              <Calendar />
+            <div className="card animate-fade-in" style={{ animationDelay: '0.1s' }}>
+              <div className="flex items-center justify-between mb-6">
+                <div 
+                  className="flex items-center space-x-2 cursor-pointer hover:text-primary-700 transition-colors group"
+                  onClick={() => setFocusedSection('calendar')}
+                  title="Click to focus on Calendar"
+                >
+                  <svg className="w-5 h-5 text-primary-600 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <h2 className="text-xl font-semibold text-gray-900 group-hover:text-primary-700">Calendar</h2>
+                </div>
+              </div>
+              <Calendar teams={teams} hideHeader={true} />
             </div>
           </div>
 
@@ -960,9 +985,13 @@ const AppContent = () => {
           <div className="lg:col-span-1">
             <div className="card animate-fade-in" style={{ animationDelay: '0.2s' }}>
               <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center space-x-2">
-                  <NoteIcon className="w-5 h-5 text-primary-600" />
-                  <h2 className="text-xl font-semibold text-gray-900">Notes</h2>
+                <div 
+                  className="flex items-center space-x-2 cursor-pointer hover:text-primary-700 transition-colors group"
+                  onClick={() => setFocusedSection('notes')}
+                  title="Click to focus on Notes"
+                >
+                  <NoteIcon className="w-5 h-5 text-primary-600 group-hover:scale-110 transition-transform" />
+                  <h2 className="text-xl font-semibold text-gray-900 group-hover:text-primary-700">Notes</h2>
                 </div>
                 <button
                   onClick={handleCreateNote}
@@ -1046,6 +1075,376 @@ const AppContent = () => {
         </main>
       )}
 
+      {/* Focused Section View */}
+      {currentView === 'main' && focusedSection && (
+        <div className="fixed inset-0 z-40 bg-black bg-opacity-50 flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-7xl max-h-[90vh] overflow-hidden flex flex-col animate-scale-in">
+            {/* Focused Section Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-primary-50 to-blue-50">
+              <div className="flex items-center space-x-3">
+                {focusedSection === 'tasks' && (
+                  <>
+                    <CheckIcon className="w-6 h-6 text-primary-600" />
+                    <h2 className="text-2xl font-bold text-gray-900">Tasks</h2>
+                  </>
+                )}
+                {focusedSection === 'calendar' && (
+                  <>
+                    <svg className="w-6 h-6 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    <h2 className="text-2xl font-bold text-gray-900">Calendar</h2>
+                  </>
+                )}
+                {focusedSection === 'notes' && (
+                  <>
+                    <NoteIcon className="w-6 h-6 text-primary-600" />
+                    <h2 className="text-2xl font-bold text-gray-900">Notes</h2>
+                  </>
+                )}
+              </div>
+              <button
+                onClick={() => setFocusedSection(null)}
+                className="p-2 hover:bg-white rounded-lg transition-colors text-gray-500 hover:text-gray-700"
+                title="Exit focus mode"
+              >
+                <XIcon className="w-6 h-6" />
+              </button>
+            </div>
+
+            {/* Focused Section Content */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {focusedSection === 'tasks' && (
+                <div className="max-w-4xl mx-auto">
+                  {/* Model Loading Indicator */}
+                  {modelLoading && (
+                    <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                      <div className="flex items-center space-x-2">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                        <span className="text-sm text-blue-700">Preparing AI model...</span>
+                      </div>
+                      <p className="text-xs text-blue-600 mt-1">This may take a few moments on first use</p>
+                    </div>
+                  )}
+
+                  {/* Model Ready Indicator */}
+                  {modelReady && (
+                    <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                      <div className="flex items-center space-x-2">
+                        <div className="w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
+                          <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                        </div>
+                        <span className="text-sm text-green-700">AI model ready!</span>
+                      </div>
+                      <p className="text-xs text-green-600 mt-1">You can now add tasks with AI-powered priority classification</p>
+                    </div>
+                  )}
+
+                  {/* Add Task Form */}
+                  <form onSubmit={addTask} className="mb-6">
+                    <div className="flex space-x-2">
+                      <input
+                        type="text"
+                        value={newTask}
+                        onChange={(e) => setNewTask(e.target.value)}
+                        placeholder="Add task... (e.g., 'ASAP send report by 5pm', 'low prio maybe clean desk')"
+                        className="input-primary flex-1 text-sm"
+                      />
+                      <button
+                        type="submit"
+                        className="btn-primary px-3 disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled={!newTask.trim() || submitting}
+                        title="Add task"
+                      >
+                        {submitting ? (
+                          <span className="text-xs">...</span>
+                        ) : (
+                          <PlusIcon />
+                        )}
+                      </button>
+                    </div>
+
+                    {/* Live NLP Preview */}
+                    {preview && (
+                      <div className="mt-2 flex items-center justify-between text-xs">
+                        <div className="flex items-center space-x-2">
+                          <span className={`px-2 py-0.5 rounded-full capitalize ${
+                            preview.label === 'high'
+                              ? 'bg-red-100 text-red-800'
+                              : preview.label === 'medium'
+                              ? 'bg-blue-100 text-blue-800'
+                              : 'bg-gray-100 text-gray-800'
+                          }`}>
+                            {preview.label} priority
+                          </span>
+                          <span className="text-gray-500">
+                            {preview.rationale}
+                            {preview.due && (
+                              <>
+                                {' · '}
+                                Due: {new Date(preview.due).toLocaleString()}
+                              </>
+                            )}
+                          </span>
+                        </div>
+                        <span className="text-gray-400">
+                          score {typeof preview.score === 'number' ? preview.score.toFixed(2) : '...'}
+                        </span>
+                      </div>
+                    )}
+
+                    <p className="text-xs text-gray-500 mt-2">
+                      💡 Try cues like <code>ASAP</code>, <code>EOD</code>, <code>low prio</code>, or add your own in{' '}
+                      <button
+                        type="button"
+                        className="underline hover:text-gray-700"
+                        onClick={() => setShowCueSettings(true)}
+                      >
+                        Priority Cues
+                      </button>
+                      .
+                    </p>
+                  </form>
+
+                  {/* Task List */}
+                  <div className="space-y-3">
+                    {visibleTasks.map((task, index) => (
+                      <div
+                        key={task.id}
+                        className={`flex items-start space-x-3 p-4 rounded-lg border-l-4 transition-all duration-200 hover:shadow-sm ${
+                          task.completed ? 'bg-gray-50 border-l-gray-300 opacity-75' : getPriorityColor(task.priority)
+                        }`}
+                        style={{ animationDelay: `${index * 0.06}s` }}
+                      >
+                        <button
+                          onClick={() => toggleTask(task.id)}
+                          className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all mt-0.5 ${
+                            task.completed
+                              ? 'bg-green-500 border-green-500 text-white'
+                              : 'border-gray-300 hover:border-primary-400 hover:bg-primary-50'
+                          }`}
+                          title={task.completed ? 'Mark as not done' : 'Mark as done'}
+                        >
+                          {task.completed && <CheckIcon className="w-3 h-3" />}
+                        </button>
+
+                        <div className="flex-1 min-w-0">
+                          {editingTaskId === task.id ? (
+                            <div className="flex items-center space-x-2 mb-2">
+                              <input
+                                type="text"
+                                value={editingTaskText}
+                                onChange={(e) => setEditingTaskText(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') saveEditingTask();
+                                  if (e.key === 'Escape') cancelEditingTask();
+                                }}
+                                className="flex-1 text-sm border border-primary-400 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                                autoFocus
+                              />
+                              <button
+                                onClick={saveEditingTask}
+                                className="p-1 text-green-600 hover:text-green-700 transition-colors"
+                                title="Save"
+                              >
+                                <SaveIcon />
+                              </button>
+                              <button
+                                onClick={cancelEditingTask}
+                                className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
+                                title="Cancel"
+                              >
+                                <CancelIcon />
+                              </button>
+                            </div>
+                          ) : (
+                            <p
+                              className={`text-sm ${
+                                task.completed ? 'text-gray-500 line-through' : 'text-gray-900'
+                              }`}
+                            >
+                              {task.text}
+                            </p>
+                          )}
+
+                          {/* Priority + rationale/due */}
+                          {!task.completed && editingTaskId !== task.id && (
+                            <div className="space-y-2 mt-1">
+                              <div className="flex items-center flex-wrap gap-x-2 gap-y-1">
+                                <div className={`w-2 h-2 rounded-full ${getPriorityDot(task.priority)}`}></div>
+                                <span className="text-xs text-gray-600 capitalize">{task.priority} priority</span>
+                                {task.manualPriority && (
+                                  <span className="text-xs text-primary-600" title="Manually set priority">
+                                    (Manual)
+                                  </span>
+                                )}
+                                {!task.manualPriority && task.meta?.rationale && (
+                                  <span className="text-xs text-gray-500">· {task.meta.rationale}</span>
+                                )}
+                                {task.meta?.due && (
+                                  <span className="text-xs text-gray-500">
+                                    · Due: {new Date(task.meta.due).toLocaleString()}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <span className="text-xs text-gray-500">Change priority:</span>
+                                <div className="flex space-x-1">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      changePriority(task.id, 'low');
+                                    }}
+                                    className={`px-2 py-0.5 text-xs rounded transition-colors ${
+                                      task.priority === 'low'
+                                        ? 'bg-gray-500 text-white'
+                                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                    }`}
+                                  >
+                                    Low
+                                  </button>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      changePriority(task.id, 'medium');
+                                    }}
+                                    className={`px-2 py-0.5 text-xs rounded transition-colors ${
+                                      task.priority === 'medium'
+                                        ? 'bg-blue-500 text-white'
+                                        : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                                    }`}
+                                  >
+                                    Med
+                                  </button>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      changePriority(task.id, 'high');
+                                    }}
+                                    className={`px-2 py-0.5 text-xs rounded transition-colors ${
+                                      task.priority === 'high'
+                                        ? 'bg-red-500 text-white'
+                                        : 'bg-red-100 text-red-700 hover:bg-red-200'
+                                    }`}
+                                  >
+                                    High
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Team Assignment */}
+                          {editingTaskId !== task.id && (
+                            <div className="mt-2">
+                              <select
+                                value={task.teamId || ''}
+                                onChange={(e) => assignTaskToTeam(task.id, e.target.value)}
+                                className="text-xs border border-gray-300 rounded px-2 py-1 bg-white hover:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <option value="">No team assigned</option>
+                                {teams.length === 0 ? (
+                                  <option value="" disabled>No teams available - create one in Team Spaces</option>
+                                ) : (
+                                  teams.map(team => (
+                                    <option key={team.id} value={team.id}>
+                                      {team.name}
+                                    </option>
+                                  ))
+                                )}
+                              </select>
+                            </div>
+                          )}
+                        </div>
+
+                        {editingTaskId !== task.id && (
+                          <div className="flex items-center space-x-1">
+                            <button
+                              onClick={() => startEditingTask(task)}
+                              className="p-1 text-gray-400 hover:text-blue-500 transition-colors"
+                              title="Edit task"
+                            >
+                              <EditIcon />
+                            </button>
+                            <button
+                              onClick={() => deleteTask(task.id)}
+                              className="p-1 text-gray-400 hover:text-red-500 transition-colors"
+                              title="Delete task"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  {tasks.length === 0 && (
+                    <div className="text-center py-12 text-gray-500">
+                      <CheckIcon className="mx-auto mb-3 w-12 h-12 text-gray-300" />
+                      <p className="text-lg font-medium mb-2">No tasks yet</p>
+                      <p className="text-sm">Add your first task above to get started!</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {focusedSection === 'calendar' && (
+                <div className="h-full">
+                  <Calendar teams={teams} />
+                </div>
+              )}
+
+              {focusedSection === 'notes' && (
+                <div className="max-w-4xl mx-auto">
+                  <div className="flex items-center justify-between mb-6">
+                    <button
+                      onClick={handleCreateNote}
+                      className="btn-primary px-4 py-2 text-sm"
+                      title="Create new note"
+                    >
+                      <div className="flex items-center space-x-2">
+                        <PlusIcon className="w-4 h-4" />
+                        <span>New Note</span>
+                      </div>
+                    </button>
+                  </div>
+
+                  {/* Notes Search */}
+                  <div className="mb-6">
+                    <NotesSearch
+                      searchQuery={notesSearchQuery}
+                      onSearchChange={setNotesSearchQuery}
+                      filterTag={notesFilterTag}
+                      onFilterChange={setNotesFilterTag}
+                      allTags={allNoteTags}
+                      totalNotes={notes.length}
+                      filteredCount={filteredNotes.length}
+                    />
+                  </div>
+
+                  {/* Notes List */}
+                  <div>
+                    <NotesList
+                      notes={filteredNotes}
+                      onEditNote={handleEditNote}
+                      onDeleteNote={handleDeleteNote}
+                      searchQuery={notesSearchQuery}
+                      filterTag={notesFilterTag}
+                      onFilterTag={setNotesFilterTag}
+                      user={user}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Team Spaces View */}
       {currentView === 'teamspaces' && (
         <TeamSpaces 
@@ -1058,6 +1457,10 @@ const AppContent = () => {
           deleteTask={deleteTask}
           updateTask={updateTask}
           changePriority={changePriority}
+          notes={notes}
+          onEditNote={handleEditNote}
+          onDeleteNote={handleDeleteNote}
+          onSaveNote={handleSaveNote}
           user={user}
         />
       )}
@@ -1073,6 +1476,7 @@ const AppContent = () => {
         onSave={handleSaveNote}
         user={user}
         tasks={tasks}
+        teams={teams}
       />
 
       {/* Auth Modal */}
