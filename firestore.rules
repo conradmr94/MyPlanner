@@ -12,32 +12,6 @@ service cloud.firestore {
       }
     }
     
-    // Team collections - allow authenticated users to read/write
-    // TODO: Implement proper team membership checks in production
-    match /teamSpaces/{teamId} {
-      allow read, write: if request.auth != null;
-    }
-    
-    match /teamMembers/{memberId} {
-      allow read, write: if request.auth != null;
-    }
-    
-    match /teamTasks/{taskId} {
-      allow read, write: if request.auth != null;
-    }
-    
-    match /teamNotes/{noteId} {
-      allow read, write: if request.auth != null;
-    }
-    
-    match /teamEvents/{eventId} {
-      allow read, write: if request.auth != null;
-    }
-    
-    match /teamInvitations/{invitationId} {
-      allow read, write: if request.auth != null;
-    }
-    
     // Deny all other access
     match /{document=**} {
       allow read, write: if false;

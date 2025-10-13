@@ -6,7 +6,6 @@ import NotesSearch from './components/NotesSearch';
 import Calendar from './components/Calendar';
 import AuthModal from './components/AuthModal';
 import TeamSpaces from './components/TeamSpaces';
-import TeamSpaceDetail from './components/TeamSpaceDetail';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { derivePriority } from './nlp/priority';
 import { loadUserData, saveUserData, getDemoData } from './lib/userData';
@@ -32,6 +31,24 @@ const CheckIcon = ({ className = 'w-5 h-5' }) => (
 const NoteIcon = ({ className = 'w-5 h-5' }) => (
   <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+  </svg>
+);
+
+const EditIcon = ({ className = 'w-4 h-4' }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+  </svg>
+);
+
+const SaveIcon = ({ className = 'w-4 h-4' }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+  </svg>
+);
+
+const CancelIcon = ({ className = 'w-4 h-4' }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
   </svg>
 );
 
@@ -71,8 +88,10 @@ const AppContent = () => {
   const { user, requireAuth, logout, setShowAuthModal, setAuthMode } = useAuth();
 
   // Navigation state
-  const [currentView, setCurrentView] = useState('main'); // 'main', 'teams', 'team-detail'
-  const [selectedTeam, setSelectedTeam] = useState(null);
+  const [currentView, setCurrentView] = useState('main'); // 'main'
+
+  // Teams state
+  const [teams, setTeams] = useState([]);
 
   // Initialize with demo data
   const [tasks, setTasks] = useState([]);
@@ -94,6 +113,10 @@ const AppContent = () => {
   const [modelLoading, setModelLoading] = useState(true);
   const [modelReady, setModelReady] = useState(false);
 
+  // Task editing state
+  const [editingTaskId, setEditingTaskId] = useState(null);
+  const [editingTaskText, setEditingTaskText] = useState('');
+
   // Notes state
   const [notes, setNotes] = useState([]);
   const [showNoteEditor, setShowNoteEditor] = useState(false);
@@ -108,11 +131,13 @@ const AppContent = () => {
       const userId = user.uid || user.id; // Support both Firebase UID and legacy ID
       const userTasks = loadUserData(userId, 'tasks', []);
       const userNotes = loadUserData(userId, 'notes', []);
+      const userTeams = loadUserData(userId, 'teams', []);
       
       // Debug: Log user data loading
       console.log('Loading data for user:', userId);
       console.log('Loaded tasks from localStorage:', userTasks);
       console.log('Loaded notes from localStorage:', userNotes);
+      console.log('Loaded teams from localStorage:', userTeams);
       
       // Always include the template note for all users
       const demoData = getDemoData();
@@ -123,6 +148,7 @@ const AppContent = () => {
       
       setTasks(userTasks);
       setNotes(hasTemplateNote ? userNotes : [templateNote, ...userNotes]);
+      setTeams(userTeams);
     } else {
       // Load demo data for non-authenticated users
       const demoData = getDemoData();
@@ -130,6 +156,7 @@ const AppContent = () => {
       console.log('Demo tasks:', demoData.tasks);
       setTasks(demoData.tasks);
       setNotes(demoData.notes);
+      setTeams([]);
     }
   }, [user]);
 
@@ -165,6 +192,14 @@ const AppContent = () => {
     });
     return () => unsub && unsub();
   }, [user]);
+
+  // Save teams when they change
+  useEffect(() => {
+    if (user && teams.length >= 0) {
+      const userId = user.uid || user.id;
+      saveUserData(userId, 'teams', teams);
+    }
+  }, [teams, user]);
 
   // Warm up the Ollama model when the app starts
   useEffect(() => {
@@ -245,6 +280,7 @@ const AppContent = () => {
       text: local.cleanText,
       completed: false,
       priority: finalLabel,
+      manualPriority: false, // Track if priority was manually set
       meta: {
         score: local.score ?? 0,
         rationale: local.rationale,
@@ -324,6 +360,42 @@ const AppContent = () => {
       );
       saveUserData(userId, 'tasks', updatedTasks);
     }
+  };
+
+  const assignTaskToTeam = async (taskId, teamId) => {
+    // Require authentication for assigning tasks
+    if (!requireAuth('assign task to team')) {
+      return;
+    }
+    
+    // Convert teamId to number if it exists (dropdown returns string)
+    const numericTeamId = teamId ? Number(teamId) : null;
+    updateTask(taskId, { teamId: numericTeamId });
+  };
+
+  const startEditingTask = (task) => {
+    setEditingTaskId(task.id);
+    setEditingTaskText(task.text);
+  };
+
+  const saveEditingTask = () => {
+    if (editingTaskText.trim() && editingTaskId) {
+      updateTask(editingTaskId, { text: editingTaskText.trim() });
+      setEditingTaskId(null);
+      setEditingTaskText('');
+    }
+  };
+
+  const cancelEditingTask = () => {
+    setEditingTaskId(null);
+    setEditingTaskText('');
+  };
+
+  const changePriority = (taskId, newPriority) => {
+    updateTask(taskId, { 
+      priority: newPriority,
+      manualPriority: true // Mark as manually set
+    });
   };
 
   // 📝 Notes handlers
@@ -435,24 +507,8 @@ const AppContent = () => {
   const totalTasks = tasks.length;
 
   // Navigation handlers
-  const handleShowTeams = () => {
-    setCurrentView('teams');
-    setSelectedTeam(null);
-  };
-
   const handleShowMain = () => {
     setCurrentView('main');
-    setSelectedTeam(null);
-  };
-
-  const handleSelectTeam = (team) => {
-    setSelectedTeam(team);
-    setCurrentView('team-detail');
-  };
-
-  const handleBackToTeams = () => {
-    setCurrentView('teams');
-    setSelectedTeam(null);
   };
 
   // Optional: sort by score (desc), completed at bottom
@@ -538,9 +594,9 @@ const AppContent = () => {
                   My Planner
                 </button>
                 <button
-                  onClick={handleShowTeams}
+                  onClick={() => setCurrentView('teamspaces')}
                   className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
-                    currentView === 'teams' || currentView === 'team-detail'
+                    currentView === 'teamspaces' 
                       ? 'bg-primary-100 text-primary-700' 
                       : 'hover:bg-gray-100'
                   }`}
@@ -732,38 +788,153 @@ const AppContent = () => {
                     </button>
 
                     <div className="flex-1 min-w-0">
-                      <p
-                        className={`text-sm ${
-                          task.completed ? 'text-gray-500 line-through' : 'text-gray-900'
-                        }`}
-                      >
-                        {task.text}
-                      </p>
+                      {editingTaskId === task.id ? (
+                        <div className="flex items-center space-x-2 mb-2">
+                          <input
+                            type="text"
+                            value={editingTaskText}
+                            onChange={(e) => setEditingTaskText(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') saveEditingTask();
+                              if (e.key === 'Escape') cancelEditingTask();
+                            }}
+                            className="flex-1 text-sm border border-primary-400 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                            autoFocus
+                          />
+                          <button
+                            onClick={saveEditingTask}
+                            className="p-1 text-green-600 hover:text-green-700 transition-colors"
+                            title="Save"
+                          >
+                            <SaveIcon />
+                          </button>
+                          <button
+                            onClick={cancelEditingTask}
+                            className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
+                            title="Cancel"
+                          >
+                            <CancelIcon />
+                          </button>
+                        </div>
+                      ) : (
+                        <p
+                          className={`text-sm ${
+                            task.completed ? 'text-gray-500 line-through' : 'text-gray-900'
+                          }`}
+                        >
+                          {task.text}
+                        </p>
+                      )}
 
                       {/* Priority + rationale/due */}
-                      {!task.completed && (
-                        <div className="flex items-center flex-wrap gap-x-2 gap-y-1 mt-1">
-                          <div className={`w-2 h-2 rounded-full ${getPriorityDot(task.priority)}`}></div>
-                          <span className="text-xs text-gray-600 capitalize">{task.priority} priority</span>
-                          {task.meta?.rationale && (
-                            <span className="text-xs text-gray-500">· {task.meta.rationale}</span>
-                          )}
-                          {task.meta?.due && (
-                            <span className="text-xs text-gray-500">
-                              · Due: {new Date(task.meta.due).toLocaleString()}
-                            </span>
-                          )}
+                      {!task.completed && editingTaskId !== task.id && (
+                        <div className="space-y-2 mt-1">
+                          <div className="flex items-center flex-wrap gap-x-2 gap-y-1">
+                            <div className={`w-2 h-2 rounded-full ${getPriorityDot(task.priority)}`}></div>
+                            <span className="text-xs text-gray-600 capitalize">{task.priority} priority</span>
+                            {task.manualPriority && (
+                              <span className="text-xs text-primary-600" title="Manually set priority">
+                                (Manual)
+                              </span>
+                            )}
+                            {!task.manualPriority && task.meta?.rationale && (
+                              <span className="text-xs text-gray-500">· {task.meta.rationale}</span>
+                            )}
+                            {task.meta?.due && (
+                              <span className="text-xs text-gray-500">
+                                · Due: {new Date(task.meta.due).toLocaleString()}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <span className="text-xs text-gray-500">Change priority:</span>
+                            <div className="flex space-x-1">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  changePriority(task.id, 'low');
+                                }}
+                                className={`px-2 py-0.5 text-xs rounded transition-colors ${
+                                  task.priority === 'low'
+                                    ? 'bg-gray-500 text-white'
+                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                }`}
+                              >
+                                Low
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  changePriority(task.id, 'medium');
+                                }}
+                                className={`px-2 py-0.5 text-xs rounded transition-colors ${
+                                  task.priority === 'medium'
+                                    ? 'bg-blue-500 text-white'
+                                    : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                                }`}
+                              >
+                                Med
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  changePriority(task.id, 'high');
+                                }}
+                                className={`px-2 py-0.5 text-xs rounded transition-colors ${
+                                  task.priority === 'high'
+                                    ? 'bg-red-500 text-white'
+                                    : 'bg-red-100 text-red-700 hover:bg-red-200'
+                                }`}
+                              >
+                                High
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Team Assignment */}
+                      {editingTaskId !== task.id && (
+                        <div className="mt-2">
+                          <select
+                            value={task.teamId || ''}
+                            onChange={(e) => assignTaskToTeam(task.id, e.target.value)}
+                            className="text-xs border border-gray-300 rounded px-2 py-1 bg-white hover:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <option value="">No team assigned</option>
+                            {teams.length === 0 ? (
+                              <option value="" disabled>No teams available - create one in Team Spaces</option>
+                            ) : (
+                              teams.map(team => (
+                                <option key={team.id} value={team.id}>
+                                  {team.name}
+                                </option>
+                              ))
+                            )}
+                          </select>
                         </div>
                       )}
                     </div>
 
-                    <button
-                      onClick={() => deleteTask(task.id)}
-                      className="text-gray-400 hover:text-red-500 transition-colors text-lg leading-none"
-                      title="Delete task"
-                    >
-                      ×
-                    </button>
+                    {editingTaskId !== task.id && (
+                      <div className="flex items-center space-x-1">
+                        <button
+                          onClick={() => startEditingTask(task)}
+                          className="p-1 text-gray-400 hover:text-blue-500 transition-colors"
+                          title="Edit task"
+                        >
+                          <EditIcon />
+                        </button>
+                        <button
+                          onClick={() => deleteTask(task.id)}
+                          className="p-1 text-gray-400 hover:text-red-500 transition-colors"
+                          title="Delete task"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -876,13 +1047,19 @@ const AppContent = () => {
       )}
 
       {/* Team Spaces View */}
-      {currentView === 'teams' && (
-        <TeamSpaces onSelectTeam={handleSelectTeam} />
-      )}
-
-      {/* Team Detail View */}
-      {currentView === 'team-detail' && selectedTeam && (
-        <TeamSpaceDetail team={selectedTeam} onBack={handleBackToTeams} />
+      {currentView === 'teamspaces' && (
+        <TeamSpaces 
+          teams={teams} 
+          setTeams={setTeams}
+          tasks={tasks}
+          setTasks={setTasks}
+          addTask={addTask}
+          toggleTask={toggleTask}
+          deleteTask={deleteTask}
+          updateTask={updateTask}
+          changePriority={changePriority}
+          user={user}
+        />
       )}
 
       {/* Priority Cues modal */}
