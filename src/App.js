@@ -1030,48 +1030,6 @@ const AppContent = () => {
             </div>
           </div>
         </div>
-
-
-        {/* Development Progress */}
-        <div className="mt-12 grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="card bg-gradient-to-br from-primary-50 to-blue-50 border-primary-200">
-            <h3 className="text-lg font-semibold text-primary-900 mb-3">🚀 Development Progress</h3>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-primary-700">Task Management</span>
-                <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">Complete</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-primary-700">Natural Language Input</span>
-                <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">Enhanced</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-primary-700">Calendar Integration</span>
-                <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">Week 5</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-primary-700">Notes System</span>
-                <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">Complete</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="card bg-gradient-to-br from-green-50 to-emerald-50 border-green-200">
-            <h3 className="text-lg font-semibold text-green-900 mb-3">💡 Try These Features</h3>
-            <ul className="space-y-2 text-sm text-green-700">
-              <li>• Type "ASAP send report by 5pm" and watch the preview update</li>
-              <li>• Add your own cue like "blocker" in <em>Priority Cues</em></li>
-              <li>• Use "low prio" / "maybe" to de-emphasize</li>
-              <li>• Complete tasks to see progress tracking</li>
-              <li>• Create notes with **bold**, *italic*, `code`, # headers, and lists</li>
-              <li>• Use markdown formatting: &gt; quotes, [links](url), numbered lists</li>
-              <li>• Click on any note preview to open it in the editor</li>
-              <li>• Pin important notes and organize with tags</li>
-              <li>• Link notes to tasks for better organization</li>
-              <li>• Search and filter notes by content or tags</li>
-            </ul>
-          </div>
-        </div>
         </main>
       )}
 
