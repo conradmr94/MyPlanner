@@ -477,9 +477,10 @@ export default function NoteEditor({
       .replace(/<blockquote[^>]*>(.*?)<\/blockquote>/g, '> $1')
       .replace(/<a[^>]*href="([^"]*)"[^>]*>(.*?)<\/a>/g, '[$2]($1)')
       .replace(/<hr[^>]*>/g, '---')
-      .replace(/<br\s*\/?>/g, '\n')
+      .replace(/(<\/div>\s*)+/g, '\n')
+      .replace(/([^\n])<div[^>]*>/g, '$1\n')
       .replace(/<div[^>]*>/g, '')
-      .replace(/<\/div>/g, '')
+      .replace(/<br\s*\/?>/g, '\n')
       .replace(/<p[^>]*>/g, '')
       .replace(/<\/p>/g, '\n')
       .replace(/&nbsp;/g, ' ')
@@ -1216,4 +1217,3 @@ export default function NoteEditor({
     </div>
   );
 }
-
